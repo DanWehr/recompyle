@@ -2,6 +2,8 @@ import ast
 import inspect
 from types import FunctionType
 from textwrap import dedent
+from typing import Callable
+import functools
 
 
 class FunctionRewriter():
@@ -58,7 +60,7 @@ class FunctionRewriter():
         """Compile current AST back into function code object."""
         if not isinstance(self._tree, ast.Module) or not isinstance(self._tree.body[0], ast.FunctionDef):
             raise RuntimeError("Only functions can be recompiled")
-        return compile(self._tree, self.filename, "exec")
+        return compile(source=self._tree, filename=self.filename, mode="exec")
 
 
 class WrapCallsDecoratorTransformer(ast.NodeTransformer):
@@ -103,3 +105,39 @@ class WrapCallsDecoratorTransformer(ast.NodeTransformer):
                 return id != self._dec_name
             case _:
                 raise RuntimeError(f"Decorator type {node.__class__.__name__} not supported.")
+
+
+def _rewrite_function(*, func: FunctionType, wrap_func: Callable, wrap_func_name: str = "_wrap_func", decorator_name=None):
+    """Rewrites the given func so that every call is passed through wrap_func."""
+    # Reprogram function, adjust lines because we remove the decorator.
+    rewriter = FunctionRewriter(func)
+    # print(f"----- Starting Wrap of {func.__qualname__}")
+    # print(rewriter.original_source())
+    # print()
+    # print(rewriter.dump_tree())
+
+    # Transform and adjust lines to handle removing decorator.
+    rewriter.transform_tree(WrapCallsDecoratorTransformer(wrap_func_name, decorator_name), -1)
+    # print()
+    # print(rewriter.tree_to_source())
+    recompiled = rewriter.compile_tree()
+
+    f_name = func.__name__
+    f_globals = func.__globals__
+
+    replace = None
+    if f_name in f_globals and f_globals[f_name] is not func:
+        # We have a different globals func that shares a name with what we're wrapping.
+        replace = f_globals[f_name]
+
+    exec(recompiled, f_globals)
+    _new_func = f_globals[f_name]
+
+    if replace is not None:
+        # Put the other global func back.
+        f_globals[f_name] = replace
+    else:
+        del f_globals[f_name]
+
+    # Add the func for each callable.
+    return functools.partial(_new_func, **{wrap_func_name: wrap_func})
