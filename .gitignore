@@ -1,1 +1,4 @@
 ﻿*__pycache__
+
+# Ruff custom user configuration, should extend pyproject.toml if used.
+ruff.toml

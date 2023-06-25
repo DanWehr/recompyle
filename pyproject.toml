@@ -1,0 +1,71 @@
+[project]
+name = "recompyle"
+dynamic = ["version"]
+authors = [
+    { name = "Daniel Wehr", email = "danwehr@gmail.com" },
+]
+description = "A package for transforming and recompiling code"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = { paths = ["LICENSE.txt"]}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha"
+]
+
+[project.urls]
+Homepage = "https://github.com/DanWehr/recompyle"
+Documentation = "https://github.com/DanWehr/recompyle#readme"
+Issues = "https://github.com/DanWehr/recompyle/issues"
+Repository = "https://github.com/DanWehr/recompyle.git"
+
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "recompyle/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["recompyle"]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "pytest-mock",
+    "coverage[toml]>=6.5",
+]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11"]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+    "- coverage combine",
+    "coverage report"
+]
+cov = [
+    "test-cov",
+    "cov-report"
+]
+list = "pip list"
+
+[tool.coverage.paths]
+recompyle = ["recompyle", "*/recompyle/recompyle"]
+tests = ["tests", "*/recompyle/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 120
+select = ["E", "F", "B", "I"]

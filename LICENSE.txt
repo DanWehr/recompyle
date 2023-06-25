@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2023 Daniel Wehr
+Copyright (c) 2023-present Daniel Wehr <danwehr@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
