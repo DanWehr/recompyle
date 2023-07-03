@@ -38,18 +38,25 @@ class C:
 
 
 class B:
-    c = C()
+    c = {"c": C()}
 
 
 class A:
-    b = B()
+    b = [B()]
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, ignore_custom={"A", "a.b.c.c_2"})
-def with_attributes():
+@rewrite_wrap_calls(wrap_call=basic_wrapper, ignore_custom={"A", "a.b[0].c[c].c_2"})
+def complex_ignore():
     a = A()
-    a.b.c.c_1()
-    return a.b.c.c_2()
+    a.b[0].c["c"].c_1()
+    return a.b[0].c["c"].c_2()
+
+
+@rewrite_wrap_calls(wrap_call=basic_wrapper, ignore_custom={"a.b[0].c[*].c_2"})
+def complex_ignore_wildcard():
+    a = A()
+    a.b[0].c["c"].c_1()
+    return a.b[0].c["c"].c_2()
 
 
 class TestIgnoreCalls:
@@ -61,10 +68,18 @@ class TestIgnoreCalls:
         for record in caplog.records:
             assert "other_function" in record.message
 
-    def test_ignore_custom(self, caplog):
-        """Verify custom ignore works including nested attributes."""
+    def test_complex_ignore(self, caplog):
+        """Verify custom ignore works including nested attributes and subscripts."""
         with caplog.at_level(logging.INFO):
-            assert with_attributes()
+            assert complex_ignore()
         assert len(caplog.records) == 2
         for record in caplog.records:
             assert "C.c_1" in record.message  # Qualname is used, doesn't have the full path.
+
+    def test_complex_ignore_wildcard(self, caplog):
+        """Verify custom ignore works including nested attributes and subscripts using a wildcard."""
+        with caplog.at_level(logging.INFO):
+            assert complex_ignore_wildcard()
+        assert len(caplog.records) == 4
+        for record in caplog.records:
+            assert "C.c_1" in record.message or "A" in record.message  # Qualname is logged, doesn't have the full path.

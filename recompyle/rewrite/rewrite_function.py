@@ -153,7 +153,9 @@ def rewrite_wrap_calls_func(
         wrap_call (Callable): The function to pass all calls through.
         decorator_name (str): The decorator name.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
-        ignore_custom (set[str] | None): Call names that should not be wrapped.
+        ignore_custom (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
+            quotes, e.g. a pattern of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an
+            asterisk, like `"a[*]"` which would match code `a[0]()` and `a[1]()` and `a["key"]()` etc.
         rewrite_details (dict): If provided will be updated to store the original function object and original/new
             source in the keys `original_func`, `original_source`, and `new_source`.
     """

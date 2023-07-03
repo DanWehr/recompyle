@@ -1,5 +1,7 @@
 """Function transformers for ASTs."""
 import ast
+import itertools
+import re
 
 
 class RemoveDecoratorTransformer(ast.NodeTransformer):
@@ -84,6 +86,35 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         self._wrap_call_name = wrap_call_name
         self.ignore_names = ignore_names
 
+    def _build_name(self, node: ast.expr) -> str:
+        """Recursively builds a call name from an AST.
+
+        String literals are returned without quotes to reduce the complexity of the match. This allows us to skip the
+        handling combinations of single or double quotes which are equivalent. For example `obj["x"]["y"]["z"]()` could
+        be matched by both `obj['x']["y"]['z']` and `obj["x"]['y']["z"]` patterns if we included quotes. This can be
+        revisited if there is enough need to differentiate between `obj['a']` and `obj[a]`.
+
+        Args:
+            node (expr): Node to build name from.
+
+        Returns:
+            str: Full call name.
+
+        Raises:
+            RuntimeError: If a node function type other than Name or Attribute is encountered.
+        """
+        match node:
+            case ast.Constant(value=name):
+                return str(name)
+            case ast.Name(id=name):
+                return name
+            case ast.Attribute(value=next_node, attr=name):
+                return f"{self._build_name(next_node)}.{name}"
+            case ast.Subscript(value=next_node, slice=inner):
+                return f"{self._build_name(next_node)}[{self._build_name(inner)}]"
+            case _:
+                raise RuntimeError(f"Unknown call node type: {type(node)}")
+
     def _allow_wrap_call(self, node: ast.Call) -> bool:
         """Determine if call node should be wrapped.
 
@@ -92,29 +123,29 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
 
         Returns:
             bool: True if call should be wrapped, False otherwise.
-
-        Raises:
-            RuntimeError: If a node function type other than Name or Attribute is encountered.
         """
         if self.ignore_names is None:
             return True
 
-        match node.func:
-            case ast.Name(id=name):
-                pass
-            case ast.Attribute() as func:
-                name = [func.attr]
-                while isinstance(func.value, ast.Attribute):
-                    func = func.value
-                    name.insert(0, func.attr)
-                if isinstance(func.value, ast.Name):
-                    name.insert(0, func.value.id)
-                else:
-                    raise RuntimeError(f"Unknown call func node type: {type(func.value)}")
-                name = ".".join(name)
-            case func:
-                raise RuntimeError(f"Unknown call func node type: {type(func)}")
-        return name not in self.ignore_names
+        full_name = self._build_name(node.func)
+        if full_name in self.ignore_names:
+            return False
+
+        # Create alternative names that could match with wildcards.
+        matches = list(re.finditer(r'\[(.*?)\]', full_name))
+        if matches:
+            wildcard_names = []
+            for i in range(1, len(matches) + 1):
+                for c in itertools.combinations(matches, i):
+                    # Replace combinations in reverse order as string length may change.
+                    n = full_name
+                    for m in reversed(c):
+                        n = n[:m.start()] + "[*]" + n[m.end():]
+                    wildcard_names.append(n)
+            for wildcard_name in wildcard_names:
+                if wildcard_name in self.ignore_names:
+                    return False
+        return True
 
     def visit_Call(self, node: ast.Call) -> ast.Call:
         """Wrap every call node that is not ignored with `wrap_call`.
