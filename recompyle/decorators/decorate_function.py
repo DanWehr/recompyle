@@ -13,6 +13,7 @@ T2 = TypeVar("T2")
 def rewrite_wrap_calls(
     *, wrap_call: Callable[Concatenate[Callable[P2, T2], P2], T2],
     ignore_builtins: bool = False,
+    ignore_custom: set[str] | None = None,
     rewrite_details: dict | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Apply `rewrite.rewrite_function.rewrite_wrap_calls_func`.
@@ -20,6 +21,7 @@ def rewrite_wrap_calls(
     Args:
         wrap_call (WrapCall): Callable that will wrap all calls inside target function.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
+        ignore_custom (set[str] | None): Call names that should not be wrapped.
         rewrite_details (dict): If provided will be updated to store the original function object and original/new
             source in the keys `original_func`, `original_source`, and `new_source`.
 
@@ -33,6 +35,7 @@ def rewrite_wrap_calls(
             wrap_call=wrap_call,
             decorator_name="rewrite_wrap_calls",
             ignore_builtins=ignore_builtins,
+            ignore_custom=ignore_custom,
             rewrite_details=rewrite_details,
         )
     return _call_wrapper

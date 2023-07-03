@@ -84,8 +84,40 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         self._wrap_call_name = wrap_call_name
         self.ignore_names = ignore_names
 
+    def _allow_wrap_call(self, node: ast.Call) -> bool:
+        """Determine if call node should be wrapped.
+
+        Args:
+            node (Call): Node to check.
+
+        Returns:
+            bool: True if call should be wrapped, False otherwise.
+
+        Raises:
+            RuntimeError: If a node function type other than Name or Attribute is encountered.
+        """
+        if self.ignore_names is None:
+            return True
+
+        match node.func:
+            case ast.Name(id=name):
+                pass
+            case ast.Attribute() as func:
+                name = [func.attr]
+                while isinstance(func.value, ast.Attribute):
+                    func = func.value
+                    name.insert(0, func.attr)
+                if isinstance(func.value, ast.Name):
+                    name.insert(0, func.value.id)
+                else:
+                    raise RuntimeError(f"Unknown call func node type: {type(func.value)}")
+                name = ".".join(name)
+            case func:
+                raise RuntimeError(f"Unknown call func node type: {type(func)}")
+        return name not in self.ignore_names
+
     def visit_Call(self, node: ast.Call) -> ast.Call:
-        """Wrap every call node with `wrap_call`.
+        """Wrap every call node that is not ignored with `wrap_call`.
 
         Args:
             node (Call): Call definition to wrap.
@@ -93,7 +125,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         Returns:
             Call: Node after changes.
         """
-        if self.ignore_names is None or node.func.id not in self.ignore_names:
+        if self._allow_wrap_call(node):
             new_node = ast.Call(
                 ast.Name(self._wrap_call_name, ast.Load()), args=[node.func, *node.args], keywords=node.keywords,
             )
