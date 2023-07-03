@@ -34,10 +34,10 @@ class FunctionRewriter:
             target_func (FunctionType): Function to process.
 
         Raises:
-            RuntimeError: If `func` is not a FunctionType, such as a class-based callable.
+            TypeError: If `func` is not a FunctionType, such as a class-based callable.
         """
         if not isinstance(target_func, FunctionType):
-            raise RuntimeError("Only functions supported for AST transformation.")
+            raise TypeError("Only functions supported for AST transformation.")
         self.target_func = target_func
         self._orig_source, self.filename, self.firstlineno = self._get_source()
         self._adjust_lineno = 0
@@ -53,19 +53,19 @@ class FunctionRewriter:
             tuple[str, str, int]: Function source, filename, and first line number.
 
         Raises:
-            RuntimeError: If function is a builtin or source not available.
+            ValueError: If function is a builtin or source not available.
         """
         try:
             code = self.target_func.__code__
             filename = inspect.getsourcefile(code)
             if filename is None:
-                raise RuntimeError("Source not available")
+                raise ValueError("Source not available")
             source = inspect.getsource(code)
             firstlineno = code.co_firstlineno
         except TypeError as e:
-            raise RuntimeError("Builtins not supported for uncompiling") from e
+            raise ValueError("Builtins not supported for uncompiling") from e
         except OSError as e:
-            raise RuntimeError("Source not available") from e
+            raise ValueError("Source not available") from e
 
         return source, filename, firstlineno
 
@@ -122,10 +122,10 @@ class FunctionRewriter:
             CodeType: The compiled AST.
 
         Raises:
-            RuntimeError: If the AST after transformations no longer represents a function definition.
+            TypeError: If the AST after transformations no longer represents a function definition.
         """
         if not isinstance(self._tree, ast.Module) or not isinstance(self._tree.body[0], ast.FunctionDef):
-            raise RuntimeError("Only functions can be recompiled")
+            raise TypeError("Only functions can be recompiled")
         return compile(source=self._tree, filename=self.filename, mode="exec")
 
 
@@ -162,7 +162,7 @@ def rewrite_wrap_calls_func(
             source in the keys `original_func`, `original_source`, and `new_source`.
     """
     if not isinstance(target_func, FunctionType):
-        RuntimeError("Only functions/methods supported for rewrite")
+        raise TypeError("Only functions/methods supported for rewrite")
 
     # Reprogram function, adjust lines because we remove the decorator.
     rewriter = FunctionRewriter(target_func)

@@ -27,14 +27,14 @@ class RemoveDecoratorTransformer(ast.NodeTransformer):
             FunctionDef: Node after potential decorator removal.
 
         Raises:
-            RuntimeError: Description
+            ValueError: If decorator to remove is not found.
         """
         # Remove decorator if provided to prevent recursion on compile.
         if self._dec_name is not None:
             new_deco_list = [val for val in node.decorator_list if not self._is_deco_target(val)]
             if len(new_deco_list) == len(node.decorator_list):
                 err_str = f"Decorator named '{self._dec_name}' not found."
-                raise RuntimeError(err_str)
+                raise ValueError(err_str)
             node.decorator_list = new_deco_list
             self.adjust_lineno = -1
 
@@ -51,7 +51,7 @@ class RemoveDecoratorTransformer(ast.NodeTransformer):
             bool: Description
 
         Raises:
-            RuntimeError: If the decorator is an unexpected node type.
+            TypeError: If the decorator is an unexpected node type.
         """
         match node:
             case ast.Name(id=name):
@@ -62,7 +62,7 @@ class RemoveDecoratorTransformer(ast.NodeTransformer):
                 return name == self._dec_name
             case _:
                 err_str = f"Decorator type {node.__class__.__name__} not supported."
-                raise RuntimeError(err_str)
+                raise TypeError(err_str)
 
 
 class WrapCallsTransformer(RemoveDecoratorTransformer):
@@ -110,7 +110,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
             str: Full call name.
 
         Raises:
-            RuntimeError: If a node function type other than Name or Attribute is encountered.
+            TypeError: If a node function type other than Name or Attribute is encountered.
         """
         match node:
             case ast.Constant(value=name):
@@ -122,7 +122,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
             case ast.Subscript(value=next_node, slice=inner):
                 return f"{self._build_name(next_node)}[{self._build_name(inner)}]"
             case _:
-                raise RuntimeError(f"Unknown call node type: {type(node)}")
+                raise TypeError(f"Unknown call node type: {type(node)}")
 
     def _allow_name(self, name: str) -> bool | None:
         """Check name against blacklist and whitelist.
