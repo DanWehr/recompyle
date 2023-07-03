@@ -162,7 +162,7 @@ def rewrite_wrap_calls_func(
     rewriter = FunctionRewriter(target_func)
 
     # Transform and adjust lines to handle removing decorator.
-    ignore_names = target_func.__builtins__.keys() if ignore_builtins else None
+    ignore_names = set(target_func.__builtins__.keys()) if ignore_builtins else None
     transformer = WrapCallsTransformer(WRAP_NAME, decorator_name, ignore_names=ignore_names)
     rewriter.transform_tree(transformer, transformer.adjust_lineno)
     recompiled = rewriter.compile_tree()
@@ -172,28 +172,16 @@ def rewrite_wrap_calls_func(
         rewrite_details["original_source"] = rewriter.original_source()
         rewrite_details["new_source"] = rewriter.tree_to_source()
 
-    restore_ref = None
-    name_existed = None
-    f_name, f_globals = target_func.__name__, target_func.__globals__
-    if (name_existed := f_name in f_globals) and f_globals[f_name] is not target_func:
-        # We found a different globals object that shares a name with what we're wrapping.
-        restore_ref = f_globals[f_name]
-
     # Create runnable function.
-    exec(recompiled, f_globals)  # noqa: S102
-    _new_func = cast(Callable[P, T], f_globals[f_name])
+    f_name, f_globals = target_func.__name__, target_func.__globals__
+    f_locals = {WRAP_NAME: wrap_call}  # Provide ref for kwarg default through locals.
+    exec(recompiled, f_globals, f_locals)  # noqa: S102
+    _new_func = cast(Callable[P, T], f_locals[f_name])
+
+    # Handle this being a static or class method.
     nested = _new_func
     while hasattr(nested, "__wrapped__"):
         nested = nested.__wrapped__
+
     functools.update_wrapper(wrapper=nested, wrapped=target_func)  # Mainly to get qualname for methods.
-    # Replace the None default with our call wrapper. Cleaner than using functools.[partial|partialmethod].
-    nested.__kwdefaults__[WRAP_NAME] = wrap_call
-
-    if name_existed is False:
-        # Global name was empty, clear it again.
-        del f_globals[f_name]
-    elif restore_ref is not None:
-        # Put the other global object back.
-        f_globals[f_name] = restore_ref
-
     return _new_func

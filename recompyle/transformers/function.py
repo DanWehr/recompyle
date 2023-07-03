@@ -64,14 +64,21 @@ class RemoveDecoratorTransformer(ast.NodeTransformer):
 
 
 class WrapCallsTransformer(RemoveDecoratorTransformer):
-    """Transforms a function AST by wrapping every call with the given call."""
+    """Transforms a function AST by wrapping every call with the given call.
 
-    def __init__(self, wrap_call_name: str, remove_decorator: str | None = None, ignore_names=None):
+    This assumes that when the new function definition is executed, an object with the same name
+    as wrap_call_name can be found in the execution locals or globals.
+    """
+
+    def __init__(
+        self, wrap_call_name: str, remove_decorator: str | None = None, ignore_names: set[str] | None = None,
+    ):
         """Store `wrap_call` for wrapping calls.
 
         Args:
-            wrap_call_name (Callable): Callable to wrap all calls with.
+            wrap_call_name (str): Callable to wrap all calls with.
             remove_decorator (str | None): Name of the decorator to remove.
+            ignore_names (set[str] | None): Optional call names that should not be wrapped.
         """
         super().__init__(remove_decorator=remove_decorator)
         self._wrap_call_name = wrap_call_name
@@ -88,7 +95,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         """
         if self.ignore_names is None or node.func.id not in self.ignore_names:
             new_node = ast.Call(
-                ast.Name(self._wrap_call_name, ast.Load()), args=[node.func, *node.args], keywords=node.keywords
+                ast.Name(self._wrap_call_name, ast.Load()), args=[node.func, *node.args], keywords=node.keywords,
             )
             ast.copy_location(new_node, node)
         else:
@@ -108,6 +115,6 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         """
         # Add measure func as last param.
         node.args.kwonlyargs.append(ast.arg(self._wrap_call_name))
-        node.args.kw_defaults.append(ast.Constant(None))
+        node.args.kw_defaults.append(ast.Name(id=self._wrap_call_name, ctx=ast.Load()))
 
         return super().visit_FunctionDef(node)
