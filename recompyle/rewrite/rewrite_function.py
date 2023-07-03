@@ -37,7 +37,7 @@ class FunctionRewriter:
             TypeError: If `func` is not a FunctionType, such as a class-based callable.
         """
         if not isinstance(target_func, FunctionType):
-            raise TypeError("Only functions supported for AST transformation.")
+            raise TypeError("Only functions/methods supported for AST transformation.")
         self.target_func = target_func
         self._orig_source, self.filename, self.firstlineno = self._get_source()
         self._adjust_lineno = 0
@@ -150,7 +150,7 @@ def rewrite_wrap_calls_func(
     causing a crash due to infinite recursion.
 
     Args:
-        target_func (FunctionType): The function/method to rewrite.
+        target_func (Callable): The function/method to rewrite.
         wrap_call (Callable): The function to pass all calls through.
         decorator_name (str): The decorator name.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
@@ -159,24 +159,22 @@ def rewrite_wrap_calls_func(
             asterisk, like `"a[*]"` which would match code `a[0]()` and `a[1]()` and `a["key"]()` etc.
         whitelist (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
         rewrite_details (dict): If provided will be updated to store the original function object and original/new
-            source in the keys `original_func`, `original_source`, and `new_source`.
+            source in the keys `"original_func"`, `"original_source"`, and `"new_source"`.
+
+    Returns:
+        Callable: Rewritten function with calls wrapped.
     """
-    if not isinstance(target_func, FunctionType):
-        raise TypeError("Only functions/methods supported for rewrite")
+    # Combine blacklist with builtins if needed.
+    full_blacklist = blacklist
+    if ignore_builtins:
+        if full_blacklist is None:
+            full_blacklist = set()
+        builtin_calls = {key for key, value in target_func.__builtins__.items() if isinstance(value, Callable)}
+        full_blacklist |= builtin_calls
 
     # Reprogram function, adjust lines because we remove the decorator.
+    transformer = WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=full_blacklist, whitelist=whitelist)
     rewriter = FunctionRewriter(target_func)
-
-    # Combine blacklist with builtins if needed.
-    ignore_names = blacklist
-    if ignore_builtins:
-        if ignore_names is None:
-            ignore_names = set()
-        for key, value in target_func.__builtins__.items():
-            if isinstance(value, Callable):
-                ignore_names.add(key)
-
-    transformer = WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=ignore_names, whitelist=whitelist)
     rewriter.transform_tree(transformer, transformer.adjust_lineno)
     recompiled = rewriter.compile_tree()
 
@@ -191,10 +189,10 @@ def rewrite_wrap_calls_func(
     exec(recompiled, f_globals, f_locals)  # noqa: S102
     _new_func = cast(Callable[P, T], f_locals[f_name])
 
-    # Handle this being a static or class method.
+    # Get actual function if this is a static or class method.
     nested = _new_func
     while hasattr(nested, "__wrapped__"):
         nested = nested.__wrapped__
-
     functools.update_wrapper(wrapper=nested, wrapped=target_func)  # Mainly to get qualname for methods.
+
     return _new_func
