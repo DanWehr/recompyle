@@ -45,15 +45,22 @@ class A:
     b = [B()]
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, ignore_custom={"A", "a.b[0].c[c].c_2"})
-def complex_ignore():
+@rewrite_wrap_calls(wrap_call=basic_wrapper, blacklist={"A", "a.b[0].c[c].c_2"})
+def complex_blacklist():
     a = A()
     a.b[0].c["c"].c_1()
     return a.b[0].c["c"].c_2()
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, ignore_custom={"a.b[0].c[*].c_2"})
-def complex_ignore_wildcard():
+@rewrite_wrap_calls(wrap_call=basic_wrapper, blacklist={"a.b[0].c[*].c_2"})
+def complex_blacklist_wildcard():
+    a = A()
+    a.b[0].c["c"].c_1()
+    return a.b[0].c["c"].c_2()
+
+
+@rewrite_wrap_calls(wrap_call=basic_wrapper, whitelist={"a.b[0].c[*].c_1"})
+def complex_whitelist_wildcard():
     a = A()
     a.b[0].c["c"].c_1()
     return a.b[0].c["c"].c_2()
@@ -68,18 +75,26 @@ class TestIgnoreCalls:
         for record in caplog.records:
             assert "other_function" in record.message
 
-    def test_complex_ignore(self, caplog):
-        """Verify custom ignore works including nested attributes and subscripts."""
+    def test_complex_blacklist(self, caplog):
+        """Verify custom blacklist works including nested attributes and subscripts."""
         with caplog.at_level(logging.INFO):
-            assert complex_ignore()
+            assert complex_blacklist()
         assert len(caplog.records) == 2
         for record in caplog.records:
             assert "C.c_1" in record.message  # Qualname is used, doesn't have the full path.
 
-    def test_complex_ignore_wildcard(self, caplog):
-        """Verify custom ignore works including nested attributes and subscripts using a wildcard."""
+    def test_complex_blacklist_wildcard(self, caplog):
+        """Verify custom blacklist works including nested attributes and subscripts using a wildcard."""
         with caplog.at_level(logging.INFO):
-            assert complex_ignore_wildcard()
+            assert complex_blacklist_wildcard()
         assert len(caplog.records) == 4
         for record in caplog.records:
             assert "C.c_1" in record.message or "A" in record.message  # Qualname is logged, doesn't have the full path.
+
+    def test_complex_whitelist_wildcard(self, caplog):
+        """Verify custom whitelist works including nested attributes and subscripts using a wildcard."""
+        with caplog.at_level(logging.INFO):
+            assert complex_whitelist_wildcard()
+        assert len(caplog.records) == 2
+        for record in caplog.records:
+            assert "C.c_1" in record.message  # Qualname is logged, doesn't have the full path.

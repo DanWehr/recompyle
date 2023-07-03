@@ -135,7 +135,8 @@ def rewrite_wrap_calls_func(
     wrap_call: Callable[Concatenate[Callable[P2, T2], P2], T2],
     decorator_name: str | None = None,
     ignore_builtins: bool = False,
-    ignore_custom: set[str] | None = None,
+    blacklist: set[str] | None = None,
+    whitelist: set[str] | None = None,
     rewrite_details: dict | None = None,
 ) -> Callable[P, T]:
     """Rewrites the target function so that every call is passed through the given `wrap_call`.
@@ -153,9 +154,10 @@ def rewrite_wrap_calls_func(
         wrap_call (Callable): The function to pass all calls through.
         decorator_name (str): The decorator name.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
-        ignore_custom (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
+        blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
             quotes, e.g. a pattern of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an
             asterisk, like `"a[*]"` which would match code `a[0]()` and `a[1]()` and `a["key"]()` etc.
+        whitelist (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
         rewrite_details (dict): If provided will be updated to store the original function object and original/new
             source in the keys `original_func`, `original_source`, and `new_source`.
     """
@@ -165,16 +167,16 @@ def rewrite_wrap_calls_func(
     # Reprogram function, adjust lines because we remove the decorator.
     rewriter = FunctionRewriter(target_func)
 
-    # Transform and adjust lines to handle removing decorator.
-    ignore_names = ignore_custom
+    # Combine blacklist with builtins if needed.
+    ignore_names = blacklist
     if ignore_builtins:
         if ignore_names is None:
             ignore_names = set()
         for key, value in target_func.__builtins__.items():
             if isinstance(value, Callable):
                 ignore_names.add(key)
-    transformer = WrapCallsTransformer(WRAP_NAME, decorator_name, ignore_names=ignore_names)
 
+    transformer = WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=ignore_names, whitelist=whitelist)
     rewriter.transform_tree(transformer, transformer.adjust_lineno)
     recompiled = rewriter.compile_tree()
 

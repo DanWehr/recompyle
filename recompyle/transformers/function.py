@@ -73,18 +73,27 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
     """
 
     def __init__(
-        self, wrap_call_name: str, remove_decorator: str | None = None, ignore_names: set[str] | None = None,
+        self,
+        wrap_call_name: str,
+        remove_decorator: str | None = None,
+        blacklist: set[str] | None = None,
+        whitelist: set[str] | None = None,
     ):
         """Store `wrap_call` for wrapping calls.
 
         Args:
             wrap_call_name (str): Callable to wrap all calls with.
             remove_decorator (str | None): Name of the decorator to remove.
-            ignore_names (set[str] | None): Optional call names that should not be wrapped.
+            blacklist (set[str] | None): Optional call names that should not be wrapped.
+            whitelist (set[str] | None): Optional call names that should be wrapped.
         """
+        if blacklist and whitelist:
+            raise ValueError("Call blacklist and whitelist can not both be used at once")
+
         super().__init__(remove_decorator=remove_decorator)
         self._wrap_call_name = wrap_call_name
-        self.ignore_names = ignore_names
+        self.blacklist = blacklist
+        self.whitelist = whitelist
 
     def _build_name(self, node: ast.expr) -> str:
         """Recursively builds a call name from an AST.
@@ -115,6 +124,21 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
             case _:
                 raise RuntimeError(f"Unknown call node type: {type(node)}")
 
+    def _allow_name(self, name: str) -> bool | None:
+        """Check name against blacklist and whitelist.
+
+        Args:
+            name (str): The name to check.
+
+        Returns:
+            bool | None: Bool if the name should be allowed or rejected, None to allow more checks.
+        """
+        if self.blacklist and name in self.blacklist:
+            return False
+        if self.whitelist and name in self.whitelist:
+            return True
+        return None
+
     def _allow_wrap_call(self, node: ast.Call) -> bool:
         """Determine if call node should be wrapped.
 
@@ -124,28 +148,28 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         Returns:
             bool: True if call should be wrapped, False otherwise.
         """
-        if self.ignore_names is None:
+        # Default allow if not filtering.
+        if not self.blacklist and not self.whitelist:
             return True
 
+        # We must have a non-empty blacklist or whitelist, try exact match first.
         full_name = self._build_name(node.func)
-        if full_name in self.ignore_names:
-            return False
+        if (result := self._allow_name(full_name)) is not None:
+            return result
 
         # Create alternative names that could match with wildcards.
-        matches = list(re.finditer(r'\[(.*?)\]', full_name))
-        if matches:
-            wildcard_names = []
-            for i in range(1, len(matches) + 1):
-                for c in itertools.combinations(matches, i):
-                    # Replace combinations in reverse order as string length may change.
-                    n = full_name
-                    for m in reversed(c):
-                        n = n[:m.start()] + "[*]" + n[m.end():]
-                    wildcard_names.append(n)
-            for wildcard_name in wildcard_names:
-                if wildcard_name in self.ignore_names:
-                    return False
-        return True
+        matches = list(re.finditer(r"\[(.*?)\]", full_name))
+        for i in range(1, len(matches) + 1):
+            for c in itertools.combinations(matches, i):
+                wildcard_name = full_name
+                # Replace combinations in reverse order as string length may change.
+                for m in reversed(c):
+                    wildcard_name = wildcard_name[: m.start()] + "[*]" + wildcard_name[m.end() :]
+                if (result := self._allow_name(wildcard_name)) is not None:
+                    return result
+
+        # If using blacklist default is allow if not found, otherwise block as we must be using whitelist.
+        return bool(self.blacklist)
 
     def visit_Call(self, node: ast.Call) -> ast.Call:
         """Wrap every call node that is not ignored with `wrap_call`.
@@ -158,7 +182,9 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         """
         if self._allow_wrap_call(node):
             new_node = ast.Call(
-                ast.Name(self._wrap_call_name, ast.Load()), args=[node.func, *node.args], keywords=node.keywords,
+                ast.Name(self._wrap_call_name, ast.Load()),
+                args=[node.func, *node.args],
+                keywords=node.keywords,
             )
             ast.copy_location(new_node, node)
         else:
