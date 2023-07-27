@@ -183,7 +183,7 @@ def rewrite_wrap_calls_func(
         rewrite_details["original_source"] = rewriter.original_source()
         rewrite_details["new_source"] = rewriter.tree_to_source()
 
-    # Create runnable function.
+    # Recompile into runnable function.
     f_name, f_globals = target_func.__name__, target_func.__globals__
     f_locals = {WRAP_NAME: wrap_call}  # Provide ref for kwarg default through locals.
     exec(recompiled, f_globals, f_locals)  # noqa: S102

@@ -1,5 +1,5 @@
 """
-Tests for function call wrapping that control which calls get wrapped.
+Tests/examples for call wrapping while limiting which calls get wrapped.
 """
 import logging
 
@@ -70,7 +70,7 @@ class TestIgnoreCalls:
     def test_ignore_builtins(self, caplog):
         """Verify builtin callables like int and range are ignored with ignore_builtins."""
         with caplog.at_level(logging.INFO):
-            assert with_builtins()
+            assert with_builtins() is True
         assert len(caplog.records) == 2
         for record in caplog.records:
             assert "other_function" in record.message
@@ -78,7 +78,7 @@ class TestIgnoreCalls:
     def test_complex_blacklist(self, caplog):
         """Verify custom blacklist works including nested attributes and subscripts."""
         with caplog.at_level(logging.INFO):
-            assert complex_blacklist()
+            assert complex_blacklist() is True
         assert len(caplog.records) == 2
         for record in caplog.records:
             assert "C.c_1" in record.message  # Qualname is used, doesn't have the full path.
@@ -86,7 +86,7 @@ class TestIgnoreCalls:
     def test_complex_blacklist_wildcard(self, caplog):
         """Verify custom blacklist works including nested attributes and subscripts using a wildcard."""
         with caplog.at_level(logging.INFO):
-            assert complex_blacklist_wildcard()
+            assert complex_blacklist_wildcard() is True
         assert len(caplog.records) == 4
         for record in caplog.records:
             assert "C.c_1" in record.message or "A" in record.message  # Qualname is logged, doesn't have the full path.
@@ -94,7 +94,7 @@ class TestIgnoreCalls:
     def test_complex_whitelist_wildcard(self, caplog):
         """Verify custom whitelist works including nested attributes and subscripts using a wildcard."""
         with caplog.at_level(logging.INFO):
-            assert complex_whitelist_wildcard()
+            assert complex_whitelist_wildcard() is True
         assert len(caplog.records) == 2
         for record in caplog.records:
             assert "C.c_1" in record.message  # Qualname is logged, doesn't have the full path.

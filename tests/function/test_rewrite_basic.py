@@ -1,5 +1,5 @@
 """
-Tests that serve as examples for wrapping different kinds if functions and methods.
+Tests/examples for wrapping different kinds if functions and methods.
 """
 import logging
 
@@ -71,7 +71,7 @@ class TestBasicWrapper:
         "secondary", [secondary_function, ExampleClass().secondary_method, ExampleClass.secondary_classmethod, ExampleClass.secondary_staticmethod],
     )
     def test_wrap_secondary_combinations(self, func, secondary, caplog):
-        """Verify wrapped functions run and log correctly."""
+        """Verify wrapped functions run and create the expected number of logs."""
         with caplog.at_level(logging.INFO):
             assert func(TestBasicWrapper.COUNT, secondary)
         assert len(caplog.records) == (TestBasicWrapper.COUNT * 2) + 4
