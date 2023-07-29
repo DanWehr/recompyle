@@ -27,7 +27,7 @@ Recompyle's call wrapping will apply to anything identified as an `ast.Call` whe
 
 This decorator is used to pass all callables through a simple function. You can think of the wrapper as being similar to a decorator, where you need to pass arguments to the wrapped function, and return its return value, so that the decorator does not interfere with the original use of the wrapped function.
 
-Unlike a typical decorator, while `rewrite_wrap_calls` does not wrap the decorated function, instead wrapping each called object within that function. It is still important to pass all arguments on to the inner object, and return its return value after it is executed. This ensures the decorated function still runs as was originally written.
+Unlike a typical decorator, `rewrite_wrap_calls` does not wrap the decorated function, instead it wraps each called object within that function. It is still important to pass all arguments on to the inner object, and return its return value after it is executed. This ensures the decorated function still runs as was originally written.
 
 
 ```python
@@ -127,7 +127,7 @@ Note that for the transformed function, the `rewrite_wrap_calls` decorator is no
 ## Limitations
 
 - The rewrite+recompile process can only be applied to functions for which you have access to source code in a file that can be referenced. Applying it through decorators enforces this somewhat, but this also means it will not work on a function defined in the Python interpreter.
-- The current implementation will lose nonlocal variables during the rewrite, so this does not support rewriting inner functions.
+- The current implementation will lose access to nonlocal variables during the rewrite, so wrapping inner functions that use nonlocal variables is not yet supported.
 - By rewriting a function, it is possible to have code shown in the traceback of an exception no longer match the original source. This may be a solveable problem (see future enhancements).
 
 ## Future Enhancements

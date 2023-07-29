@@ -148,6 +148,12 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         Returns:
             bool: True if call should be wrapped, False otherwise.
         """
+        # Do not wrap globals() or locals(), different results if run in wrapper
+        match node:
+            case ast.Call(func=ast.Name(id=check)):
+                if check == "globals" or check == "locals":
+                    return False
+
         # Default allow if not filtering.
         if not self.blacklist and not self.whitelist:
             return True
@@ -190,7 +196,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         else:
             new_node = node
 
-        self.generic_visit(node)
+        self.generic_visit(new_node)
         return new_node
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:

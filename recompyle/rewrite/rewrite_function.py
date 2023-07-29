@@ -126,7 +126,7 @@ class FunctionRewriter:
         """
         if not isinstance(self._tree, ast.Module) or not isinstance(self._tree.body[0], ast.FunctionDef):
             raise TypeError("Only functions can be recompiled")
-        return compile(source=self._tree, filename=self.filename, mode="exec")
+        return compile(source=self._tree, filename=self.filename, mode="exec", dont_inherit=True)
 
 
 def rewrite_wrap_calls_func(
@@ -164,6 +164,9 @@ def rewrite_wrap_calls_func(
     Returns:
         Callable: Rewritten function with calls wrapped.
     """
+    if hasattr(target_func, "__closure__") and target_func.__closure__:
+        raise ValueError("Functions with non-local variables not supported for wrapping.")
+
     # Combine blacklist with builtins if needed.
     full_blacklist = blacklist
     if ignore_builtins:

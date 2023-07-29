@@ -61,6 +61,14 @@ class ExampleClass:
         return True
 
 
+def outer_nested():
+    @rewrite_wrap_calls(wrap_call=basic_wrapper)
+    def inner_nested():
+        return int(1.23)
+
+    return inner_nested()
+
+
 class TestBasicWrapper:
     COUNT = 5
 
@@ -75,3 +83,10 @@ class TestBasicWrapper:
         with caplog.at_level(logging.INFO):
             assert func(TestBasicWrapper.COUNT, secondary)
         assert len(caplog.records) == (TestBasicWrapper.COUNT * 2) + 4
+
+    def test_wrap_nested(self, caplog):
+        """Nested functions can be wrapped if they don't use nonlocals."""
+        with caplog.at_level(logging.INFO):
+            assert outer_nested() == 1
+        assert caplog.records[0].message == "Before int"
+        assert caplog.records[1].message == "After int"
