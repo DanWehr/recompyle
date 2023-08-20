@@ -1,21 +1,22 @@
 # Recompyle
 
-This package provides tools that can be used to rewrite and recompile source code, using the transformed version of the code at runtime. The initial proof-of-concept targets functions only, but this project is structured to eventually expand to other forms of code rewriting.
+This package provides tools that can be used to rewrite and recompile source code, using the transformed version of the code at runtime. The initial proof-of-concept targets functions only, and only calls within them, but this project is structured to eventually expand to other forms of code rewriting.
 
 Recompyle is written with pure Python using the standard library only, and has no additional dependencies.
 
-## Installation
+
+# Installation
 
 `pip install recompyle`
 
 
-## Usage
+# Usage
 
 The current implementation of Recompyle includes tools that allow for wrapping calls within a target function or method. The following example highlights a few different types of calls.
 
 ```python
 def example_function():
-    a = A()  # Calling a class
+    a = A()  # Calling a class to create an instance
     result = a.run(some_arg=5)  # Calling a method
     return int(result)  # Calling the 'int' builtin
 ```
@@ -23,48 +24,54 @@ def example_function():
 Recompyle's call wrapping will apply to anything identified as an `ast.Call` when evaluating source code. This could include calling a class, a function, or an object that implements `__call__`.
 
 
-### Using the `rewrite_wrap_calls` decorator
+## Using the `rewrite_wrap_calls` decorator
 
-This decorator is used to pass all callables through a simple function. You can think of the wrapper as being similar to a decorator, where you need to pass arguments to the wrapped function, and return its return value, so that the decorator does not interfere with the original use of the wrapped function.
+This decorator is used to pass all callables and their parameters through a given function. You can think of the wrapper as being similar to a decorator, where you need to pass arguments to the wrapped function, and return its return value, so that the decorator does not interfere with the original use of the wrapped function.
 
-Unlike a typical decorator, `rewrite_wrap_calls` does not wrap the decorated function, instead it wraps each called object within that function. It is still important to pass all arguments on to the inner object, and return its return value after it is executed. This ensures the decorated function still runs as was originally written.
+Unlike a typical decorator, `rewrite_wrap_calls` does not actually wrap the decorated function, instead it wraps each call in the source code of that function. Similar to a decorator the function used to wrap calls must execute the call with its intended arguments, and return its return value, so that the modified function still runs as it originally written.
 
 
 ```python
 from recompyle import rewrite_wrap_calls
 
+
 def basic_wrapper(call, *args, **kwargs):
-    """Basic wrapper that prints before and after each call."""
-    print(f"Before {call.__qualname__}")
+    """Basic wrapper that prints a line before and after each call."""
+    print(f"Before {call.__qualname__}, args: {args}, kwargs: {kwargs}")
     try:
         return call(*args, **kwargs)
     finally:
         print(f"After {call.__qualname__}")
 
-def secondary_function():
-    return "string from secondary function"
+
+def other_function(val: float) -> str:
+    """Some other function being called."""
+    return f"other val: {val}"
+
 
 @rewrite_wrap_calls(wrap_call=basic_wrapper)
-def example_function(count):
+def example_function(count: int) -> str:
+    """Function we are rewriting to wrap calls."""
     for _ in (int(v) for v in range(count)):
         pass
-    return secondary_function()
+    return other_function(val=123.45)
+
 
 print(example_function(2))
 ```
 
-Would produce the output:
+Would produce the print output:
 
 ```text
-Before range
+Before range, args: (2,), kwargs: {}
 After range
-Before int
+Before int, args: (0,), kwargs: {}
 After int
-Before int
+Before int, args: (1,), kwargs: {}
 After int
-Before secondary_function
-After secondary_function
-string from secondary function
+Before other_function, args: (), kwargs: {'val': 123.45}
+After other_function
+other val: 123.45
 ```
 
 Only the `wrap_call` parameter is required, but there are other optional parameters. The full set includes:
@@ -75,28 +82,88 @@ Only the `wrap_call` parameter is required, but there are other optional paramet
 - `whitelist` (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
 - `rewrite_details` (dict | None): If provided the given dict will be updated to store the original function object and original/new source in the keys `original_func`, `original_source`, and `new_source`.
 
+For further examples of `rewrite_wrap_calls` see the tests in [test_rewrite_basic.py](tests/function/test_rewrite_basic.py), and [`test_ignore_calls.py`](tests/function/test_ignore_calls.py) for examples of the blacklist and whitelist.
 
-For further examples of `rewrite_wrap_calls` see the tests in `test_rewrite_basic.py`, and `test_ignore_calls.py` for examples of the blacklist and whitelist.
 
-### Using the `shallow_call_profiler` decorator
+## Using the `shallow_call_profiler` decorator
 
-This decorator is a more complex implementation of function rewriting. Rather than providing your own custom call wrapper, a wrapper defined internally is used to record the execution times of all calls, in addition to the execution time of the function overall. If the overall time exceeds the configured threshold, a log is created that includes the call execution times, making it easy to see which call caused the increase.
+This decorator uses function rewriting internally to record the execution times of all calls, in addition to the total execution time of the function. A time limit must be provided, and if the total time is below/above that limit then a below/above callback will run.
 
-[Example goes here]
+The default callbacks will create a log showing the total time, and if the total is above the limit also log a summary of those calls. If the total time exceeds the configured threshold, a log is created that includes the call execution times, ordered by longest calls first, making it easy to see which call caused the increase. Multiple call times for the same name (e.g. from multiple `int()` calls) will be summed together into a single value for this default output.
 
-## Background
+```python
+import logging
+import time
+
+from recompyle import shallow_call_profiler
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+
+def slow_function(val: float) -> str:
+    """Slow function being called."""
+    time.sleep(0.5)  # Force total time of example_function over limit
+    return f"other val: {val}"
+
+
+def faster_function() -> None:
+    """Faster function being called."""
+    time.sleep(0.001)
+
+
+@shallow_call_profiler(time_limit=0.3)
+def example_function(count: int) -> str:
+    """Function we are rewriting to time calls."""
+    faster_function()
+    for _ in (int(v) for v in range(count)):
+        pass
+    return slow_function(val=123.45)
+
+
+log.info(example_function(2))
+```
+
+Would produce the log output:
+
+```text
+INFO:recompyle.applied.shallow_profiler:example_function finished in 0.506083s, above limit of 0.3s
+('slow_function: 0.504s',
+ 'faster_function: 0.00175s',
+ 'int: 1.3e-06s',
+ 'range: 1.2e-06s')
+INFO:__main__:other val: 123.45
+```
+
+Only the `time_limit` parameter is required, but there are other optional parameters. The full set includes:
+
+- `time_limit` (float): Threshold that determines which callback run after decorated function runs.
+- `below_callback` (Callable): Called when execution time is under the time limit.
+- `above_callback` (Callable): Called when execution time is equal to or over the time limit.
+
+A custom callback must have the following parameters:
+
+- `total` (float): The total execution time of the function.
+- `limit` (float): The time limit configured for the function.
+- `times` (dict): A dictionary of all calls recorded and their execution times. Keys are the call names (`str`), while the value is a list of each execution time in the order the calls occurred (`list[float]`).
+- `func` (Callable): The function the call was within. This is the function after modification by the shallow_call_profiler for call timing.
+
+
+# Background
 
 Recompyle came from wanting to monitor execution time of a function in a production system, and if an abnormal (above a threshold) execution time was encountered, to provide more detail than a simple decorator that just records the execution time of the entire function. Knowing *what* in the function was responsible for the time increase could help significantly with debugging/optimizing.
 
-A full call stack would be the most useful through tools like the builtin `cProfile`, but there is typically enough overhead that it is not feasible for use in production. One way to address that overhead would be to only periodically profile the program (such as in statistical profiling), but that is primarily useful for improving your typical execution times. If you want to watch for abnormal cases like a slowdown that is rarely caused by an external resource, you need to be able to monitor the execution of the relevant code continuously, evaluating every execution. This would have to have a very low impact on processing time to be production safe.
+A full call stack would be the most useful which you can get through tools like the builtin `cProfile`, but there is typically enough overhead that it is not feasible for use in production. One way to address that overhead would be to only periodically profile the program (such as in statistical profiling), but that is primarily useful for monitoring your average execution behavior. If you want to watch for abnormal cases like a slowdown that is rarely (say once a day) caused by an external resource, you need to be able to monitor the relevant code continuously, evaluating every execution to catch that rare event. For this to be possible, overhead must be very low.
 
-### Shallow Profiler
 
-One way to handle the problem of profiling overhead would be to limit the scope of that profiling. Recompyle attempts to address this with a "shallow profiler" (`recompyle.shallow_call_profiler`) that will capture the execution times of *all* calls within a decorated function, and *only* the calls within that function. It does not go deeper and profile the full call stack. Reduced overhead was the primary goal for this proof-of-concept.
+## Shallow Profiler
+
+One way to handle the problem of profiling overhead would be to limit the scope of that profiling. Recompyle attempts to address this with a "shallow profiler" (`recompyle.shallow_call_profiler`) that will capture the execution times of *all* calls within a decorated function, and *only* the calls within that function. It does not go deeper and profile the full call stack. Reduced overhead was a major goal for this work.
 
 The shallow profiler records the execution times of all callables in the decorated function or method, and if the total execution time is greater than a configurable time limit, the times of all internal calls will be logged in addition to the total.
 
-### Recompiling Functions
+
+## Recompiling Functions
 
 Recompyle works by rewriting the source of the decorated function or method, at the time the module is loaded, to insert the wrapper and pass calls into it.
 
@@ -104,24 +171,43 @@ For example with the wrapped example function above:
 
 ```python
 @rewrite_wrap_calls(wrap_call=basic_wrapper)
-def example_function(count):
+def example_function(count: int) -> str:
+    """Function we are rewriting to wrap calls."""
     for _ in (int(v) for v in range(count)):
         pass
-    return secondary_function()
+    return other_function(val=123.45)
 ```
 
 Would be roughly equivalent to:
 
 ```python
-def example_function(count):
+def example_function(count: int) -> str:
+    """Function we are rewriting to wrap calls."""
     for _ in (basic_wrapper(int, v) for v in basic_wrapper(range, count)):
         pass
-    return basic_wrapper(secondary_function)
+    return basic_wrapper(other_function, val=123.45)
 ```
 
-The original function is actually transformed into this alternate form by Recompyle, and the function object created from this new definition replaces the old one.
+The original function is actually transformed into this alternate form by Recompyle, and the function object created from this new definition replaces the old one. This works roughly through the following process:
 
-Note that for the transformed function, the `rewrite_wrap_calls` decorator is no longer present! If not removed, the rewrite process would repeat when recompiling this changed source back into a useable python object, and the rewrite would fail due to infinite recursion.
+1. The original function is compiled by python and passed into the decorator. Through this we can find the file the function came from, and what line its source starts on.
+2. We read the original source and transform it into an Abstract Syntax Tree.
+3. A series of transformers can be applied to the AST to modify the code.
+4. After modification, the AST is compiled back into a *code* object and then executed, running the new function definition and creating a new callable function object.
+5. The new function is returned by the decorator, replacing the original function.
+
+Note also that in the rewritten version of the function, the `rewrite_wrap_calls` decorator is no longer present! If not removed, when we execute the new function definition above in step 4 it would rerun the decorator as well, leading to an infinite recursion and exception on loading the module.
+
+
+## Beyond Profiling
+
+While this project started with a goal of creating the shallow call profiler, it quickly expanded to a larger goal.
+
+There are many packages that use ASTs to modify code, but typically this rewrite and recompile process is not very accessible and it can be difficult to understand how the process works, let alone with nothing in the implementation being reuseable, so you have to write your own implementation from scratch.
+
+Recompyle attempts to make AST manipulation more accessible and provides a number of classes and functions that can either be reused directly in other projects, or at least serve as a clearer reference for your own custom code.
+
+[TODO: Specific classes/functions will be highlighted here after an upcoming refactor.]
 
 
 ## Limitations
