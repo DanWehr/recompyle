@@ -17,7 +17,7 @@ def rewrite_wrap_calls(
     whitelist: set[str] | None = None,
     rewrite_details: dict | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Apply `rewrite.rewrite_function.rewrite_wrap_calls_func`.
+    """Apply `rewrite.rewrite_function.rewrite_wrap_calls_func` to decorated function.
 
     Args:
         wrap_call (Callable): Function or method that will wrap all calls inside target function.

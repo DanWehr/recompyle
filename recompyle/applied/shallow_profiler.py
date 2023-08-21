@@ -94,6 +94,9 @@ def shallow_call_profiler(
         below_callback (ProfilerCallback | None): Called when execution time is under the time limit.
         above_callback (ProfilerCallback | None): Called when execution time is equal to or over the time limit.
     """
+    if below_callback is None and above_callback is None:
+        raise ValueError("At least one of before_callback and above_callback must be non-None")
+
     _call_times: defaultdict[str, list[float]] = defaultdict(list)
     _call_names: dict[object, str] = {}
 

@@ -8,6 +8,7 @@ from types import CodeType, FunctionType
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from recompyle.transformers import WrapCallsTransformer
+from recompyle.transformers.base import RecompyleBaseTransformer
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -99,19 +100,18 @@ class FunctionRewriter:
         """
         return ast.unparse(self._tree)
 
-    def transform_tree(self, transformer: ast.NodeTransformer, adjust_lineno: int = 0) -> None:
+    def transform_tree(self, transformer: RecompyleBaseTransformer) -> None:
         """Transform the current tree with the given transformer.
 
-        If the transformer adds or removes lines, a line number adjustment should also be given
-        so that the resulting AST can have its line numbering corrected accordingly.
+        If the transformer adds or removes lines, a line number adjustment should also be given so that the resulting
+        AST can have its line numbering corrected accordingly.
 
         Args:
             transformer (ast.NodeTransformer): The transformer to apply.
-            adjust_lineno (int, optional): The line number adjustment.
         """
         self._tree = transformer.visit(self._tree)
         # Adjust lineno for correct tracebacks, different depending on transform.
-        self._adjust_lineno += adjust_lineno
+        self._adjust_lineno += transformer.adjust_lineno
         ast.increment_lineno(self._tree, self.firstlineno + self._adjust_lineno)
         ast.fix_missing_locations(self._tree.body[0])
 
@@ -129,6 +129,55 @@ class FunctionRewriter:
         return compile(source=self._tree, filename=self.filename, mode="exec", dont_inherit=True)
 
 
+def rewrite_function(
+    *,
+    target_func: Callable[P, T],
+    transformers: list[RecompyleBaseTransformer],
+    custom_locals: dict[str, object] | None = None,
+    rewrite_details: dict[str, object] | None = None,
+) -> Callable[P, T]:
+    """Generic rewriter for functions.
+
+    Args:
+        target_func (Callable): The function/method to rewrite.
+        transformers (list[RecompyleBaseTransformer]): All transformers to appy in the order given.
+        custom_locals (dict[str, object] | None): Optional locals dictionary to compile function with.
+        rewrite_details (dict): If provided will be updated to store the original function object and original/new
+            source in the keys `"original_func"`, `"original_source"`, and `"new_source"`.
+
+    Returns:
+        Callable: Rewritten function.
+    """
+    if hasattr(target_func, "__closure__") and target_func.__closure__:
+        raise ValueError("Functions with non-local variables not supported for wrapping.")
+
+    rewriter = FunctionRewriter(target_func)
+    for transformer in transformers:
+        rewriter.transform_tree(transformer)
+    recompiled = rewriter.compile_tree()
+
+    # Recompile into runnable function.
+    f_name, f_globals = target_func.__name__, target_func.__globals__
+    if custom_locals is None:
+        custom_locals = {}
+    exec(recompiled, f_globals, custom_locals)  # noqa: S102
+    _new_func = cast(Callable[P, T], custom_locals[f_name])
+
+    # Get actual function if this is a static or class method.
+    nested = _new_func
+    while hasattr(nested, "__wrapped__"):
+        nested = nested.__wrapped__
+    functools.update_wrapper(wrapper=nested, wrapped=target_func)  # Mainly to get qualname for methods.
+
+    # Return details if dict was provided.
+    if rewrite_details is not None:
+        rewrite_details["original_func"] = target_func
+        rewrite_details["original_source"] = rewriter.original_source()
+        rewrite_details["new_source"] = rewriter.tree_to_source()
+
+    return _new_func
+
+
 def rewrite_wrap_calls_func(
     *,
     target_func: Callable[P, T],
@@ -137,7 +186,7 @@ def rewrite_wrap_calls_func(
     ignore_builtins: bool = False,
     blacklist: set[str] | None = None,
     whitelist: set[str] | None = None,
-    rewrite_details: dict | None = None,
+    rewrite_details: dict[str, object] | None = None,
 ) -> Callable[P, T]:
     """Rewrites the target function so that every call is passed through the given `wrap_call`.
 
@@ -158,15 +207,12 @@ def rewrite_wrap_calls_func(
             quotes, e.g. a pattern of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an
             asterisk, like `"a[*]"` which would match code `a[0]()` and `a[1]()` and `a["key"]()` etc.
         whitelist (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
-        rewrite_details (dict): If provided will be updated to store the original function object and original/new
-            source in the keys `"original_func"`, `"original_source"`, and `"new_source"`.
+        rewrite_details (dict[str, object]): If provided will be updated to store the original function object and
+            original/new source in the keys `"original_func"`, `"original_source"`, and `"new_source"`.
 
     Returns:
         Callable: Rewritten function with calls wrapped.
     """
-    if hasattr(target_func, "__closure__") and target_func.__closure__:
-        raise ValueError("Functions with non-local variables not supported for wrapping.")
-
     # Combine blacklist with builtins if needed.
     full_blacklist = blacklist
     if ignore_builtins:
@@ -175,27 +221,15 @@ def rewrite_wrap_calls_func(
         builtin_calls = {key for key, value in target_func.__builtins__.items() if isinstance(value, Callable)}
         full_blacklist |= builtin_calls
 
-    # Reprogram function, adjust lines because we remove the decorator.
-    transformer = WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=full_blacklist, whitelist=whitelist)
-    rewriter = FunctionRewriter(target_func)
-    rewriter.transform_tree(transformer, transformer.adjust_lineno)
-    recompiled = rewriter.compile_tree()
+    # Set up transformers and locals
+    transformers: list[RecompyleBaseTransformer] = [
+        WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=full_blacklist, whitelist=whitelist),
+    ]
+    custom_locals: dict[str, object] = {WRAP_NAME: wrap_call}  # Provide ref for kwarg default through locals.
 
-    if rewrite_details is not None:
-        rewrite_details["original_func"] = target_func
-        rewrite_details["original_source"] = rewriter.original_source()
-        rewrite_details["new_source"] = rewriter.tree_to_source()
-
-    # Recompile into runnable function.
-    f_name, f_globals = target_func.__name__, target_func.__globals__
-    f_locals = {WRAP_NAME: wrap_call}  # Provide ref for kwarg default through locals.
-    exec(recompiled, f_globals, f_locals)  # noqa: S102
-    _new_func = cast(Callable[P, T], f_locals[f_name])
-
-    # Get actual function if this is a static or class method.
-    nested = _new_func
-    while hasattr(nested, "__wrapped__"):
-        nested = nested.__wrapped__
-    functools.update_wrapper(wrapper=nested, wrapped=target_func)  # Mainly to get qualname for methods.
-
-    return _new_func
+    return rewrite_function(
+        target_func=target_func,
+        transformers=transformers,
+        custom_locals=custom_locals,
+        rewrite_details=rewrite_details,
+    )

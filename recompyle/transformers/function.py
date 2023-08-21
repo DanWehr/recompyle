@@ -3,8 +3,10 @@ import ast
 import itertools
 import re
 
+from recompyle.transformers.base import RecompyleBaseTransformer
 
-class RemoveDecoratorTransformer(ast.NodeTransformer):
+
+class RemoveDecoratorTransformer(RecompyleBaseTransformer):
     """Transforms a function AST by optionally removing a decorator."""
 
     def __init__(self, remove_decorator: str | None = None):
@@ -15,7 +17,6 @@ class RemoveDecoratorTransformer(ast.NodeTransformer):
         """
         super().__init__()
         self._dec_name = remove_decorator
-        self.adjust_lineno = -1 if remove_decorator is not None else 0
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
         """Remove decorator if provided to prevent recursion on recompile.
@@ -36,7 +37,7 @@ class RemoveDecoratorTransformer(ast.NodeTransformer):
                 err_str = f"Decorator named '{self._dec_name}' not found."
                 raise ValueError(err_str)
             node.decorator_list = new_deco_list
-            self.adjust_lineno = -1
+            self.adjust_lineno -= 1
 
         self.generic_visit(node)
         return node
@@ -151,7 +152,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         # Do not wrap globals() or locals(), different results if run in wrapper
         match node:
             case ast.Call(func=ast.Name(id=check)):
-                if check == "globals" or check == "locals":
+                if check in ("globals", "locals"):
                     return False
 
         # Default allow if not filtering.
