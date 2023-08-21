@@ -21,15 +21,14 @@ def example_function():
     return int(result)  # Calling the 'int' builtin
 ```
 
-Recompyle's call wrapping will apply to anything identified as an `ast.Call` when evaluating source code. This could include calling a class, a function, or an object that implements `__call__`.
+Recompyle's call wrapping will apply to anything identified as an `ast.Call` when evaluating source code.
 
 
 ## Using the `rewrite_wrap_calls` decorator
 
-This decorator is used to pass all callables and their parameters through a given function. You can think of the wrapper as being similar to a decorator, where you need to pass arguments to the wrapped function, and return its return value, so that the decorator does not interfere with the original use of the wrapped function.
+This decorator is used to pass all callables and their parameters through a given wrapper function. You can think of the wrapper as being similar to a decorator, where you need to pass arguments to the wrapped function, and return its return value, so that the decorator does not interfere with the original use of the wrapped function.
 
-Unlike a typical decorator, `rewrite_wrap_calls` does not actually wrap the decorated function, instead it wraps each call in the source code of that function. Similar to a decorator the function used to wrap calls must execute the call with its intended arguments, and return its return value, so that the modified function still runs as it originally written.
-
+Unlike a typical decorator, `rewrite_wrap_calls` does not actually wrap the decorated function. Instead it wraps each call in the source code of that function.
 
 ```python
 from recompyle import rewrite_wrap_calls
@@ -82,7 +81,7 @@ Only the `wrap_call` parameter is required, but there are other optional paramet
 - `whitelist` (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
 - `rewrite_details` (dict | None): If provided the given dict will be updated to store the original function object and original/new source in the keys `original_func`, `original_source`, and `new_source`.
 
-For further examples of `rewrite_wrap_calls` see the tests in [test_rewrite_basic.py](tests/function/test_rewrite_basic.py), and [`test_ignore_calls.py`](tests/function/test_ignore_calls.py) for examples of the blacklist and whitelist.
+For further examples of `rewrite_wrap_calls` see the tests in [`test_rewrite_basic.py`](tests/function/test_rewrite_basic.py). For examples of using the blacklist and whitelist, see [`test_ignore_calls.py`](tests/function/test_ignore_calls.py).
 
 
 ## Using the `shallow_call_profiler` decorator
@@ -138,15 +137,10 @@ INFO:__main__:other val: 123.45
 Only the `time_limit` parameter is required, but there are other optional parameters. The full set includes:
 
 - `time_limit` (float): Threshold that determines which callback run after decorated function runs.
-- `below_callback` (Callable): Called when execution time is under the time limit.
-- `above_callback` (Callable): Called when execution time is equal to or over the time limit.
+- `below_callback` (Callable | None): Called when execution time is under the time limit.
+- `above_callback` (Callable | None): Called when execution time is equal to or over the time limit.
 
-A custom callback must have the following parameters:
-
-- `total` (float): The total execution time of the function.
-- `limit` (float): The time limit configured for the function.
-- `times` (dict): A dictionary of all calls recorded and their execution times. Keys are the call names (`str`), while the value is a list of each execution time in the order the calls occurred (`list[float]`).
-- `func` (Callable): The function the call was within. This is the function after modification by the shallow_call_profiler for call timing.
+A custom callback used in place of the default `below_callback` or `above_callback` would have the following form:
 
 
 # Background

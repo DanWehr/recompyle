@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable, Generator
 from operator import itemgetter
 from pprint import pformat
-from typing import ParamSpec, TypeAlias, TypeVar
+from typing import ParamSpec, Protocol, TypeAlias, TypeVar
 
 from recompyle.rewrite import rewrite_wrap_calls_func
 
@@ -13,9 +13,21 @@ log = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 T = TypeVar("T")
-
-
 TimeDict: TypeAlias = dict[str, list[float]]
+
+
+class ProfilerCallback(Protocol):
+    """Profiler callback protocol."""
+    def __call__(self, total: float, limit: float, times: TimeDict, func: Callable) -> None:
+        """Callback to run after function transformed with shallow_call_profiler is executed.
+
+        Args:
+            total (float): Total execution time of the function.
+            limit (float): Time limit configured for the function.
+            times (TimeDict): All calls recorded and their execution times. Keys are the call names, while
+                the value is a list of each execution time in the order the calls occurred.
+            func (Callable): The function the calls were within.
+        """
 
 
 def _collect_sorted_times(times: TimeDict) -> Generator[str, None, None]:
@@ -26,7 +38,7 @@ def _collect_sorted_times(times: TimeDict) -> Generator[str, None, None]:
     )
 
 
-def default_below_log(total: float, limit: float, _: TimeDict, func: Callable) -> None:
+def default_below_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
     """Log function total time without call details."""
     log_str = f"{func.__qualname__} finished in {total:g}s, below limit of {limit:g}s"
     log.info(log_str)
@@ -60,8 +72,8 @@ def _find_name(call: Callable) -> str:
 def shallow_call_profiler(
     *,
     time_limit: float,
-    below_callback: Callable[[float, float, TimeDict, Callable[P, T]], None] = default_below_log,
-    above_callback: Callable[[float, float, TimeDict, Callable[P, T]], None] = default_above_log,
+    below_callback: ProfilerCallback | None = default_below_log,
+    above_callback: ProfilerCallback | None = default_above_log,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Rewrites target function to record runtime of each call in it.
 
@@ -79,10 +91,8 @@ def shallow_call_profiler(
 
     Args:
         time_limit (float): Threshold that determines which callback run after decorated function runs.
-        below_callback (Callable[[float, float, TimeDict, Callable[P, T]], None], optional): Called when execution time
-            is under the time limit.
-        above_callback (Callable[[float, float, TimeDict, Callable[P, T]], None], optional): Called when execution time
-            is equal to or over the time limit.
+        below_callback (ProfilerCallback | None): Called when execution time is under the time limit.
+        above_callback (ProfilerCallback | None): Called when execution time is equal to or over the time limit.
     """
     _call_times: defaultdict[str, list[float]] = defaultdict(list)
     _call_names: dict[object, str] = {}
@@ -97,14 +107,14 @@ def shallow_call_profiler(
         _call_names[call] = _find_name(call)
         return _call_names[call]
 
-    def _record_call_time(call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    def _record_call_time(__call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
         """Wrapper to record execution time of inner calls."""
         start = time.perf_counter()
         try:
-            return call(*args, **kwargs)
+            return __call(*args, **kwargs)
         finally:
             end = time.perf_counter()
-            _call_times[_get_name(call)].append(end - start)
+            _call_times[_get_name(__call)].append(end - start)
 
     def _measure_calls(func: Callable[P, T]) -> Callable[P, T]:
         """Decorator to measure total call time and inner call times."""
@@ -119,9 +129,9 @@ def shallow_call_profiler(
                 return _new_func(*args, **kwargs)
             finally:
                 duration = time.perf_counter() - start
-                if duration < time_limit:
+                if below_callback is not None and duration < time_limit:
                     below_callback(duration, time_limit, _call_times.copy(), _new_func)
-                else:
+                elif above_callback is not None:
                     above_callback(duration, time_limit, _call_times.copy(), _new_func)
                 _call_times.clear()
         return inner_wrapper
