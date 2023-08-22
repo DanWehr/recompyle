@@ -81,7 +81,7 @@ Only the `wrap_call` parameter is required, but there are other optional paramet
 - `whitelist` (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
 - `rewrite_details` (dict | None): If provided the given dict will be updated to store the original function object and original/new source in the keys `original_func`, `original_source`, and `new_source`.
 
-For further examples of `rewrite_wrap_calls` see the tests in [`test_rewrite_basic.py`](tests/function/test_rewrite_basic.py). For examples of using the blacklist and whitelist, see [`test_ignore_calls.py`](tests/function/test_ignore_calls.py).
+For further examples of `rewrite_wrap_calls` see the tests in [test_rewrite_basic.py](tests/function/test_rewrite_basic.py). For examples of using the blacklist and whitelist, see [test_ignore_calls.py](tests/function/test_ignore_calls.py).
 
 
 ## Using the `shallow_call_profiler` decorator
@@ -140,14 +140,23 @@ Only the `time_limit` parameter is required, but there are other optional parame
 - `below_callback` (Callable | None): Called when execution time is under the time limit.
 - `above_callback` (Callable | None): Called when execution time is equal to or over the time limit.
 
-A custom callback used in place of the default `below_callback` or `above_callback` would have the following form:
+A custom callback used in place of the default `below_callback` or `above_callback`. See [ProfilerCallback](recompyle/applied/shallow_profiler.py) for details on the callback arguments.
+
+
+## Custom Function Transformations
+
+To create your own function/decorator that can modify function source code in new ways, you should only need to:
+
+1. Create at least one custom node transformers that extends [RecompyleBaseTransformer](recompyle/transformers/base.py). See [Green Tree Snakes](https://greentreesnakes.readthedocs.io/) for a great reference on working with ASTs. The transformers for the call wrapper can be found [here](recompyle/transformers/function.py).
+2. Pass a target function and your transformer(s) to [rewrite_function()](recompyle/rewrite/rewrite_function.py). This will return a new function, modified and recompiled to include the transformations.
+3. If the transformers support configuration, that can be handled by placing this process inside of another function. If the new function should replace the original, this is best done with a decorator.
 
 
 # Background
 
 Recompyle came from wanting to monitor execution time of a function in a production system, and if an abnormal (above a threshold) execution time was encountered, to provide more detail than a simple decorator that just records the execution time of the entire function. Knowing *what* in the function was responsible for the time increase could help significantly with debugging/optimizing.
 
-A full call stack would be the most useful which you can get through tools like the builtin `cProfile`, but there is typically enough overhead that it is not feasible for use in production. One way to address that overhead would be to only periodically profile the program (such as in statistical profiling), but that is primarily useful for monitoring your average execution behavior. If you want to watch for abnormal cases like a slowdown that is rarely (say once a day) caused by an external resource, you need to be able to monitor the relevant code continuously, evaluating every execution to catch that rare event. For this to be possible, overhead must be very low.
+A full call stack would be the most useful which you can get through tools like the builtin cProfile, but there is typically enough overhead that it is not feasible for use in production. One way to address that overhead would be to only periodically profile the program (such as in statistical profiling), but that is primarily useful for monitoring your average execution behavior. If you want to watch for abnormal cases like a slowdown that is rarely (say once a day) caused by an external resource, you need to be able to monitor the relevant code continuously, evaluating every execution to catch that rare event. For this to be possible, overhead must be very low.
 
 
 ## Shallow Profiler
@@ -195,25 +204,23 @@ Note also that in the rewritten version of the function, the `rewrite_wrap_calls
 
 ## Beyond Profiling
 
-While this project started with a goal of creating the shallow call profiler, it quickly expanded to a larger goal.
+While this project started with a goal of creating the shallow call profiler, it quickly expanded to a larger goal. There are many packages that use ASTs to modify code, but typically this rewrite and recompile process is not very accessible and it can be difficult to understand how the process works. You're stuck with reading source code and building something yourself from scratch.
 
-There are many packages that use ASTs to modify code, but typically this rewrite and recompile process is not very accessible and it can be difficult to understand how the process works, let alone with nothing in the implementation being reuseable, so you have to write your own implementation from scratch.
+Recompyle attempts to make AST manipulation more accessible by providing a number of classes and functions that can either be reused directly in other projects, or at least serve as a clearer reference for your own custom code. The shallow profiler itself is now implemented using a more generic call wrapper that can easily be used to execute any code before/after calls.
 
-Recompyle attempts to make AST manipulation more accessible and provides a number of classes and functions that can either be reused directly in other projects, or at least serve as a clearer reference for your own custom code.
-
-[TODO: Specific classes/functions will be highlighted here after an upcoming refactor.]
+While this package only provides tools for rewriting functions and wrapping calls within them, it is intended for this to expand to include more transformers transformers, and different targets beyond functions such as rewriting classes or modules as well.
 
 
-## Limitations
+# Limitations
 
 - The rewrite+recompile process can only be applied to functions for which you have access to source code in a file that can be referenced. Applying it through decorators enforces this somewhat, but this also means it will not work on a function defined in the Python interpreter.
 - The current implementation will lose access to nonlocal variables during the rewrite, so wrapping inner functions that use nonlocal variables is not yet supported.
 - By rewriting a function, it is possible to have code shown in the traceback of an exception no longer match the original source. This may be a solveable problem (see future enhancements).
 
-## Future Enhancements
+# Future Enhancements
 
-- Investigate optional support for modifying tracebacks to remove the callable wrapper (trace frame and text of source lines) such that the traceback matches original source again. If possible this should only be done if the error originates from original source. If an exception occurs in the wrapper, then the wrapper should of course still be part of the traceback.
+- Investigate optional support for modifying tracebacks to remove the call wrapper (trace frame and text of source lines) such that the traceback matches original source again. If possible this should only be done if the error originates from original source. If an exception occurs in the wrapper, then the wrapper should of course still be part of the traceback.
 
-## Development
+# Contributing
 
-[Not Yet Written]
+Bugs, feedback and requests should all be handled through this project's [GitHub Issues](https://github.com/DanWehr/recompyle/issues) page.

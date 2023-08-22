@@ -4,7 +4,8 @@ import ast
 class RecompyleBaseTransformer(ast.NodeTransformer):
     """Base transformer class that should be used with all Recompyle rewriters.
 
-    If a transformer does not change line numbers it can leave the value at the default 0.
+    Transformers that change the starting line number of function must change adjust_lineno accordingly. For example if
+    if the transformer moves the function one line earlier, substract one from adjust_lineno.
     """
     def __init__(self) -> None:
         super().__init__()
