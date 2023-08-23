@@ -5,7 +5,7 @@ import inspect
 from collections.abc import Callable
 from textwrap import dedent
 from types import CodeType, FunctionType
-from typing import Concatenate, ParamSpec, TypeVar, cast
+from typing import ParamSpec, Protocol, TypeVar, cast
 
 from recompyle.transformers import WrapCallsTransformer
 from recompyle.transformers.base import RecompyleBaseTransformer
@@ -13,10 +13,21 @@ from recompyle.transformers.base import RecompyleBaseTransformer
 P = ParamSpec("P")
 T = TypeVar("T")
 
-P2 = ParamSpec("P2")
-T2 = TypeVar("T2")
+WrapP = ParamSpec("WrapP")
 
 WRAP_NAME = "_recompyle_wrap"
+
+
+class CallWrapper(Protocol[P]):
+    """Call wrapper protocol."""
+
+    def __call__(self, __call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+        """Callable that can run extra code before/after a call.
+
+        It must run the `__call` with the given args and kwargs, and return the call's return value:
+            return __call(*args, **kwargs)
+        """
+        ...
 
 
 class FunctionRewriter:
@@ -181,7 +192,7 @@ def rewrite_function(
 def rewrite_wrap_calls_func(
     *,
     target_func: Callable[P, T],
-    wrap_call: Callable[Concatenate[Callable[P2, T2], P2], T2],
+    wrap_call: CallWrapper[WrapP],
     decorator_name: str | None = None,
     ignore_builtins: bool = False,
     blacklist: set[str] | None = None,
@@ -200,7 +211,7 @@ def rewrite_wrap_calls_func(
 
     Args:
         target_func (Callable): The function/method to rewrite.
-        wrap_call (Callable): The function to pass all calls through.
+        wrap_call (CallWrapper): The function to pass all calls through.
         decorator_name (str): The decorator name.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
         blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use

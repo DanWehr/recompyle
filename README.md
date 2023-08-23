@@ -31,16 +31,21 @@ This decorator is used to pass all callables and their parameters through a give
 Unlike a typical decorator, `rewrite_wrap_calls` does not actually wrap the decorated function. Instead it wraps each call in the source code of that function.
 
 ```python
+from collections.abc import Callable
+from typing import ParamSpec, TypeVar
+
 from recompyle import rewrite_wrap_calls
 
+P = ParamSpec("P")
+T = TypeVar("T")
 
-def basic_wrapper(call, *args, **kwargs):
-    """Basic wrapper that prints a line before and after each call."""
-    print(f"Before {call.__qualname__}, args: {args}, kwargs: {kwargs}")
+def basic_wrapper(__call: Callable[P, T],  *args: P.args, **kwargs: P.kwargs) -> T:
+    """Basic wrapper that prints before and after each call."""
+    print(f"Before {__call.__qualname__}, args: {args}, kwargs: {kwargs}")
     try:
-        return call(*args, **kwargs)
+        return __call(*args, **kwargs)
     finally:
-        print(f"After {call.__qualname__}")
+        print(f"After {__call.__qualname__}")
 
 
 def other_function(val: float) -> str:

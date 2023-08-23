@@ -1,17 +1,16 @@
 from collections.abc import Callable
-from typing import Concatenate, ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar
 
-from recompyle.rewrite import rewrite_wrap_calls_func
+from recompyle.rewrite import CallWrapper, rewrite_wrap_calls_func
 
 P = ParamSpec("P")
 T = TypeVar("T")
 
-P2 = ParamSpec("P2")
-T2 = TypeVar("T2")
+WrapP = ParamSpec("WrapP")
 
 
 def rewrite_wrap_calls(
-    *, wrap_call: Callable[Concatenate[Callable[P2, T2], P2], T2],
+    *, wrap_call: CallWrapper[WrapP],
     ignore_builtins: bool = False,
     blacklist: set[str] | None = None,
     whitelist: set[str] | None = None,
@@ -20,7 +19,7 @@ def rewrite_wrap_calls(
     """Apply `rewrite.rewrite_function.rewrite_wrap_calls_func` to decorated function.
 
     Args:
-        wrap_call (Callable): Function or method that will wrap all calls inside target function.
+        wrap_call (CallWrapper): Function or method that will wrap all calls inside target function.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
         blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
             quotes, e.g. use a name of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an

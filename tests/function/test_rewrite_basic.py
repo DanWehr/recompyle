@@ -10,13 +10,13 @@ from recompyle import rewrite_wrap_calls
 log = logging.getLogger(__name__)
 
 
-def basic_wrapper(call, *args, **kwargs):
+def basic_wrapper(__call, *args, **kwargs):
     """Basic wrapper that creates two logs per call."""
-    log.info(f"Before {call.__qualname__}")
+    log.info(f"Before {__call.__qualname__}")
     try:
-        return call(*args, **kwargs)
+        return __call(*args, **kwargs)
     finally:
-        log.info(f"After {call.__qualname__}")
+        log.info(f"After {__call.__qualname__}")
 
 
 @rewrite_wrap_calls(wrap_call=basic_wrapper)
