@@ -216,15 +216,11 @@ Recompyle attempts to make AST manipulation more accessible by providing a numbe
 While this package only provides tools for rewriting functions and wrapping calls within them, it is intended for this to expand to include more transformers transformers, and different targets beyond functions such as rewriting classes or modules as well.
 
 
-# Limitations
+# Current Limitations
 
 - The rewrite+recompile process can only be applied to functions for which you have access to source code in a file that can be referenced. Applying it through decorators enforces this somewhat, but this also means it will not work on a function defined in the Python interpreter.
 - The current implementation will lose access to nonlocal variables during the rewrite, so wrapping inner functions that use nonlocal variables is not yet supported.
-- By rewriting a function, it is possible to have code shown in the traceback of an exception no longer match the original source. This may be a solveable problem (see future enhancements).
 
-# Future Enhancements
-
-- Investigate optional support for modifying tracebacks to remove the call wrapper (trace frame and text of source lines) such that the traceback matches original source again. If possible this should only be done if the error originates from original source. If an exception occurs in the wrapper, then the wrapper should of course still be part of the traceback.
 
 # Contributing
 
