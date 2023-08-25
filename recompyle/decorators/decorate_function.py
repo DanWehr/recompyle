@@ -10,7 +10,8 @@ WrapP = ParamSpec("WrapP")
 
 
 def rewrite_wrap_calls(
-    *, wrap_call: CallWrapper[WrapP],
+    *,
+    wrap_call: CallWrapper[WrapP],
     ignore_builtins: bool = False,
     blacklist: set[str] | None = None,
     whitelist: set[str] | None = None,
@@ -42,4 +43,5 @@ def rewrite_wrap_calls(
             whitelist=whitelist,
             rewrite_details=rewrite_details,
         )
+
     return _call_wrapper

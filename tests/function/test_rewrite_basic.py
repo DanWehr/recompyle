@@ -25,8 +25,10 @@ def example_function(count, secondary):
         pass
     return secondary()
 
+
 def secondary_function():
     return True
+
 
 class ExampleClass:
     @rewrite_wrap_calls(wrap_call=basic_wrapper)
@@ -73,10 +75,22 @@ class TestBasicWrapper:
     COUNT = 5
 
     @pytest.mark.parametrize(
-        "func", [example_function, ExampleClass().example_method, ExampleClass.example_classmethod, ExampleClass.example_staticmethod],
+        "func",
+        [
+            example_function,
+            ExampleClass().example_method,
+            ExampleClass.example_classmethod,
+            ExampleClass.example_staticmethod,
+        ],
     )
     @pytest.mark.parametrize(
-        "secondary", [secondary_function, ExampleClass().secondary_method, ExampleClass.secondary_classmethod, ExampleClass.secondary_staticmethod],
+        "secondary",
+        [
+            secondary_function,
+            ExampleClass().secondary_method,
+            ExampleClass.secondary_classmethod,
+            ExampleClass.secondary_staticmethod,
+        ],
     )
     def test_wrap_secondary_combinations(self, func, secondary, caplog):
         """Verify wrapped functions run and create the expected number of logs."""

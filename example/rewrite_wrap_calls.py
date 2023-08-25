@@ -6,7 +6,8 @@ from recompyle import rewrite_wrap_calls
 P = ParamSpec("P")
 T = TypeVar("T")
 
-def basic_wrapper(__call: Callable[P, T],  *args: P.args, **kwargs: P.kwargs) -> T:
+
+def basic_wrapper(__call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
     """Basic wrapper that prints before and after each call."""
     print(f"Before {__call.__qualname__}, args: {args}, kwargs: {kwargs}")
     try:

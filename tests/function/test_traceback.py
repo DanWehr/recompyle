@@ -36,8 +36,10 @@ def func_with_inner_exc():
 def func_with_deeper_exc():
     secondary_with_exc()
 
+
 # THE TESTS BELOW ARE FRAGILE TESTS AS WE ARE VERIFYING LINE NUMBERS
 # MOVING ANY LINES ABOVE WILL BREAK AT LEAST ONE TEST
+
 
 class TestWrapperTracebackDetails:
     """Verify tracebacks, especially correct line number in the wrapped function."""

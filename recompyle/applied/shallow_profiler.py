@@ -18,6 +18,7 @@ TimeDict: TypeAlias = dict[str, list[float]]
 
 class ProfilerCallback(Protocol):
     """Profiler callback protocol."""
+
     def __call__(self, total: float, limit: float, times: TimeDict, func: Callable) -> None:
         """Callback to run after function transformed with shallow_call_profiler is executed.
 
@@ -33,9 +34,7 @@ class ProfilerCallback(Protocol):
 def _collect_sorted_times(times: TimeDict) -> Generator[str, None, None]:
     """Write call time summary to log."""
     sum_times = ((func_str, sum(times)) for func_str, times in times.items())
-    return (
-        f"{func_str}: {time:.3g}s" for func_str, time in sorted(sum_times, key=itemgetter(1), reverse=True)
-    )
+    return (f"{func_str}: {time:.3g}s" for func_str, time in sorted(sum_times, key=itemgetter(1), reverse=True))
 
 
 def default_below_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
@@ -122,7 +121,9 @@ def shallow_call_profiler(
     def _measure_calls(func: Callable[P, T]) -> Callable[P, T]:
         """Decorator to measure total call time and inner call times."""
         _new_func = rewrite_wrap_calls_func(
-            target_func=func, wrap_call=_record_call_time, decorator_name="shallow_call_profiler",
+            target_func=func,
+            wrap_call=_record_call_time,
+            decorator_name="shallow_call_profiler",
         )
 
         @functools.wraps(func)
@@ -137,5 +138,7 @@ def shallow_call_profiler(
                 elif above_callback is not None:
                     above_callback(duration, time_limit, _call_times.copy(), _new_func)
                 _call_times.clear()
+
         return inner_wrapper
+
     return _measure_calls

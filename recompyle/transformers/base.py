@@ -7,6 +7,7 @@ class RecompyleBaseTransformer(ast.NodeTransformer):
     Transformers that change the starting line number of function must change adjust_lineno accordingly. For example if
     if the transformer moves the function one line earlier, substract one from adjust_lineno.
     """
+
     def __init__(self) -> None:
         super().__init__()
         self._adjust_lineno: int = 0

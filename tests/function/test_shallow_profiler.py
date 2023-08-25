@@ -24,6 +24,7 @@ def get_args(total: float, limit: float, times: dict, func: Callable):
     last_times = times
     last_func = func
 
+
 @pytest.fixture()
 def _wipe_args():
     global last_total
