@@ -213,7 +213,7 @@ While this project started with a goal of creating the shallow call profiler, it
 
 Recompyle attempts to make AST manipulation more accessible by providing a number of classes and functions that can either be reused directly in other projects, or at least serve as a clearer reference for your own custom code. The shallow profiler itself is now implemented using a more generic call wrapper that can easily be used to execute any code before/after calls.
 
-While this package only provides tools for rewriting functions and wrapping calls within them, it is intended for this to expand to include more transformers transformers, and different targets beyond functions such as rewriting classes or modules as well.
+While this package only provides tools for rewriting functions and wrapping calls within them, it is intended for this to expand to include more transformers, and different targets beyond functions such as rewriting classes or modules as well.
 
 
 # Current Limitations
