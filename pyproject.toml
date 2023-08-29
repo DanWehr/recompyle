@@ -4,16 +4,21 @@ dynamic = ["version"]
 authors = [
     { name = "Daniel Wehr", email = "danwehr@gmail.com" },
 ]
-description = "A package for transforming and recompiling code"
+description = "Tools for modifying source at runtime. Shallow profiling of critical functions. Wrap all calls in a function."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = { paths = ["LICENSE.txt"]}
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Development Status :: 3 - Alpha"
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities"
 ]
 
 [project.urls]
