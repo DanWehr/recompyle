@@ -135,7 +135,7 @@ def shallow_call_profiler(
                 duration = time.perf_counter() - start
                 if below_callback is not None and duration < time_limit:
                     below_callback(duration, time_limit, _call_times.copy(), _new_func)
-                elif above_callback is not None:
+                elif above_callback is not None and duration >= time_limit:
                     above_callback(duration, time_limit, _call_times.copy(), _new_func)
                 _call_times.clear()
 
