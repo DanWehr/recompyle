@@ -122,7 +122,7 @@ def shallow_call_profiler(
         """Decorator to measure total call time and inner call times."""
         _new_func = rewrite_wrap_calls_func(
             target_func=func,
-            wrap_call=_record_call_time,
+            wrapper=_record_call_time,
             decorator_name="shallow_call_profiler",
         )
 

@@ -192,16 +192,16 @@ def rewrite_function(
 def rewrite_wrap_calls_func(
     *,
     target_func: Callable[P, T],
-    wrap_call: CallWrapper[WrapP],
+    wrapper: CallWrapper[WrapP],
     decorator_name: str | None = None,
     ignore_builtins: bool = False,
     blacklist: set[str] | None = None,
     whitelist: set[str] | None = None,
     rewrite_details: dict[str, object] | None = None,
 ) -> Callable[P, T]:
-    """Rewrites the target function so that every call is passed through the given `wrap_call`.
+    """Rewrites the target function so that every call is passed through the given `wrapper`.
 
-    The `wrap_call` must execute the call with its args and return the result of the call, much like a decorator. It
+    The `wrapper` must execute the call with its args and return the result of the call, much like a decorator. It
     will be passed into the rewritten target function through the keyword-only arg `_recompyle_wrap` which is added
     during the rewrite.
 
@@ -211,7 +211,7 @@ def rewrite_wrap_calls_func(
 
     Args:
         target_func (Callable): The function/method to rewrite.
-        wrap_call (CallWrapper): The function to pass all calls through.
+        wrapper (CallWrapper): The function to pass all calls through.
         decorator_name (str): The decorator name.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
         blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
@@ -236,7 +236,7 @@ def rewrite_wrap_calls_func(
     transformers: list[RecompyleBaseTransformer] = [
         WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=full_blacklist, whitelist=whitelist),
     ]
-    custom_locals: dict[str, object] = {WRAP_NAME: wrap_call}  # Provide ref for kwarg default through locals.
+    custom_locals: dict[str, object] = {WRAP_NAME: wrapper}  # Provide ref for kwarg default through locals.
 
     return rewrite_function(
         target_func=target_func,

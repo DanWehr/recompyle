@@ -1,7 +1,7 @@
 import timeit
 from statistics import mean
 
-from recompyle import rewrite_wrap_calls, shallow_call_profiler
+from recompyle import shallow_call_profiler, wrap_calls
 
 
 def simple_wrapper(__call, *args, **kwargs):
@@ -25,7 +25,7 @@ def unwrapped():
     other(0, val2=1)
 
 
-@rewrite_wrap_calls(wrap_call=simple_wrapper)
+@wrap_calls(wrapper=simple_wrapper)
 def wrapped_simple():
     other(0, val2=1)
     other(0, val2=1)

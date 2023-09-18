@@ -5,7 +5,7 @@ import logging
 
 import pytest
 
-from recompyle import rewrite_wrap_calls
+from recompyle import wrap_calls
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ def basic_wrapper(__call, *args, **kwargs):
         log.info(f"After {__call.__qualname__}")
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper)
+@wrap_calls(wrapper=basic_wrapper)
 def example_function(count, secondary):
     for _ in (int(v) for v in range(count)):
         pass
@@ -31,7 +31,7 @@ def secondary_function():
 
 
 class ExampleClass:
-    @rewrite_wrap_calls(wrap_call=basic_wrapper)
+    @wrap_calls(wrapper=basic_wrapper)
     def example_method(self, count, secondary):
         for _ in (int(v) for v in range(count)):
             pass
@@ -41,7 +41,7 @@ class ExampleClass:
         return True
 
     @classmethod
-    @rewrite_wrap_calls(wrap_call=basic_wrapper)
+    @wrap_calls(wrapper=basic_wrapper)
     def example_classmethod(cls, count, secondary):
         for _ in (int(v) for v in range(count)):
             pass
@@ -52,7 +52,7 @@ class ExampleClass:
         return True
 
     @staticmethod
-    @rewrite_wrap_calls(wrap_call=basic_wrapper)
+    @wrap_calls(wrapper=basic_wrapper)
     def example_staticmethod(count, secondary):
         for _ in (int(v) for v in range(count)):
             pass
@@ -64,7 +64,7 @@ class ExampleClass:
 
 
 def outer_nested():
-    @rewrite_wrap_calls(wrap_call=basic_wrapper)
+    @wrap_calls(wrapper=basic_wrapper)
     def inner_nested():
         return int(1.23)
 

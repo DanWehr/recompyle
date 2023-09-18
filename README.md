@@ -24,9 +24,9 @@ def example_function():
 Recompyle's call wrapping will apply to anything identified as an `ast.Call` when evaluating source code.
 
 
-## Using the `rewrite_wrap_calls` decorator
+## Using the `wrap_calls` decorator
 
-Unlike a typical decorator, `rewrite_wrap_calls` does not actually wrap the decorated function. Instead it modifies the source of decorated function so that each call in its source (and that call's arguments) is passed through the given wrapper function (`basic_wrapper` in the example below).
+Unlike a typical decorator, `wrap_calls` does not actually wrap the decorated function. Instead it modifies the source of decorated function so that each call in its source (and that call's arguments) is passed through the given wrapper function (`basic_wrapper` in the example below).
 
 The wrapper function must execute the call with those arguments, and return its return value, to ensure the behavior of the original decorated function is maintained.
 
@@ -34,7 +34,7 @@ The wrapper function must execute the call with those arguments, and return its 
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
-from recompyle import rewrite_wrap_calls
+from recompyle import wrap_calls
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -53,7 +53,7 @@ def other_function(val: float) -> str:
     return f"other val: {val}"
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper)
+@wrap_calls(wrapper=basic_wrapper)
 def example_function(count: int) -> str:
     """Function we are rewriting to wrap calls."""
     for _ in (int(v) for v in range(count)):
@@ -78,15 +78,15 @@ After other_function
 other val: 123.45
 ```
 
-Only the `wrap_call` parameter is required, and there are a number of optional parameters to control which calls will be wrapped. The full set of parameters includes:
+Only the `wrapper` parameter is required, and there are a number of optional parameters to control which calls will be wrapped. The full set of parameters includes:
 
-- `wrap_call` (Callable): Function or method that will wrap all calls inside target function.
+- `wrapper` (Callable): Function or method that will wrap all calls inside target function.
 - `ignore_builtins` (bool): Whether to skip wrapping builtin calls.
 - `blacklist` (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use quotes, e.g. use a name of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an asterisk, like `"a[*]"` which would match all of `a[0]()` and `a[val]()` and `a["key"]()` etc.
 - `whitelist` (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
 - `rewrite_details` (dict | None): If provided the given dict will be updated to store the original function object and original/new source in the keys `original_func`, `original_source`, and `new_source`.
 
-For further examples of `rewrite_wrap_calls` see the tests in [test_rewrite_basic.py](tests/function/test_rewrite_basic.py). For examples of using the blacklist and whitelist, see [test_ignore_calls.py](tests/function/test_ignore_calls.py).
+For further examples of `wrap_calls` see the tests in [test_rewrite_basic.py](tests/function/test_rewrite_basic.py). For examples of using the blacklist and whitelist, see [test_ignore_calls.py](tests/function/test_ignore_calls.py).
 
 
 ## Using the `shallow_call_profiler` decorator
@@ -160,7 +160,7 @@ Wrapping calls is only one way source can be modified. Creating your own functio
 
 # Performance
 
-Performance has been measured using a [script](recompyle/performance.py) with multiple versions of a simple function with 10 calls, one of which is unmodified by Recompyle to serve as a reference for others that use the `rewrite_wrap_calls` and `shallow_call_profiler` decorators. The numbers below are from running this script on an i7-6700K CPU, running Windows 10 with other software open at the same time.
+Performance has been measured using a [script](recompyle/performance.py) with multiple versions of a simple function with 10 calls, one of which is unmodified by Recompyle to serve as a reference for others that use the `wrap_calls` and `shallow_call_profiler` decorators. The numbers below are from running this script on an i7-6700K CPU, running Windows 10 with other software open at the same time.
 
 ```text
 Running unwrapped function 100,000 times, repeat 100/100: average 0.7551001199990424 microseconds
@@ -175,7 +175,7 @@ Shallow profiler default below callback costs 1.4671579000010748 microseconds
 Shallow profiler default above callback costs 8.886325130000476 microseconds
 ```
 
-The wrapper function used for testing `rewrite_wrap_calls` does nothing outside of running the wrapped call, and so represents a bare minimum cost (~0.221 μs) that any further code in a wrapper would add onto. The shallow profiler implements a call wrapper that records times before/after each call, and its ~0.613 μs addition to runtime cost includes the 0.221 minimum.
+The wrapper function used for testing `wrap_calls` does nothing outside of running the wrapped call, and so represents a bare minimum cost (~0.221 μs) that any further code in a wrapper would add onto. The shallow profiler implements a call wrapper that records times before/after each call, and its ~0.613 μs addition to runtime cost includes the 0.221 minimum.
 
 With these numbers if you applied the shallow profiler to a function with 100 calls that are wrapped, used the default logging callbacks, and total function runtime was generally below the profiler time limit ("below" callback is triggered), then the shallow profiler would add a total of only (100 * 0.613) + 1.467 = 62.767 μs to the execution time of the function. When the execution time is high enough to trigger the more costly "above" default callback (which processes and sorts call times to include them in its log message) this cost increases to 70.186 μs.
 
@@ -204,7 +204,7 @@ Recompyle works by rewriting the source of the decorated function or method, at 
 For example with the wrapped example function above:
 
 ```python
-@rewrite_wrap_calls(wrap_call=basic_wrapper)
+@wrap_calls(wrapper=basic_wrapper)
 def example_function(count: int) -> str:
     """Function we are rewriting to wrap calls."""
     for _ in (int(v) for v in range(count)):
@@ -230,7 +230,7 @@ The original function is actually transformed into this alternate form by Recomp
 4. After modification, the AST is compiled back into a *code* object and then executed, running the new function definition and creating a new callable function object.
 5. The new function is returned by the decorator, replacing the original function.
 
-Note also that in the rewritten version of the function above, the `rewrite_wrap_calls` decorator is no longer present! If not removed, when we execute the new function definition in step 4 it would rerun the decorator and transform the function again, adding another layer of call wrapping and leading to an infinite recursion and exception on loading the module.
+Note also that in the rewritten version of the function above, the `wrap_calls` decorator is no longer present! If not removed, when we execute the new function definition in step 4 it would rerun the decorator and transform the function again, adding another layer of call wrapping and leading to an infinite recursion and exception on loading the module.
 
 
 ## Beyond Profiling
