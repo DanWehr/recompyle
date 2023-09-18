@@ -146,8 +146,12 @@ Only the `time_limit` parameter is required. Several optional parameters are ava
 - `time_limit` (float): Threshold that determines which callback run after decorated function runs.
 - `below_callback` (Callable | None): Called when execution time is under the time limit.
 - `above_callback` (Callable | None): Called when execution time is equal to or over the time limit.
+- `ignore_builtins` (bool): Whether to skip wrapping builtin calls.
+- `blacklist` (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use quotes, e.g. use a name of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an asterisk, like `"a[*]"` which would match all of `a[0]()` and `a[val]()` and `a["key"]()` etc.
+- `whitelist` (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
+- `rewrite_details` (dict | None): If provided the given dict will be updated to store the original function object and original/new source in the keys `original_func`, `original_source`, and `new_source`.
 
-A custom callback used in place of the default `below_callback` or `above_callback`. See [ProfilerCallback](recompyle/applied/flat_profiler.py) for details on the callback arguments.
+A custom callback can be used in place of the default `below_callback` or `above_callback`. See [ProfilerCallback](recompyle/applied/flat_profiler.py) for details on the callback arguments.
 
 
 ## Custom Function Transformations

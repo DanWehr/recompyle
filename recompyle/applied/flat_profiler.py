@@ -74,6 +74,10 @@ def flat_profile(
     time_limit: float,
     below_callback: ProfilerCallback | None = default_below_log,
     above_callback: ProfilerCallback | None = default_above_log,
+    ignore_builtins: bool = False,
+    blacklist: set[str] | None = None,
+    whitelist: set[str] | None = None,
+    rewrite_details: dict | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Rewrites target function to record runtime of each call in it.
 
@@ -93,6 +97,16 @@ def flat_profile(
         time_limit (float): Threshold that determines which callback run after decorated function runs.
         below_callback (ProfilerCallback | None): Called when execution time is under the time limit.
         above_callback (ProfilerCallback | None): Called when execution time is equal to or over the time limit.
+        ignore_builtins (bool): Whether to skip wrapping builtin calls.
+        blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
+            quotes, e.g. use a name of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an
+            asterisk, like `"a[*]"` which would match all of `a[0]()` and `a[val]()` and `a["key"]()` etc.
+        whitelist (set[str] | None): Call names that should be wrapped. Allows wildcards like blacklist.
+        rewrite_details (dict | None): If provided the given dict will be updated to store the original function object
+            and original/new source in the keys `original_func`, `original_source`, and `new_source`.
+
+    Returns:
+        Callable: A decorator that will replace the wrapped function.
     """
     if below_callback is None and above_callback is None:
         raise ValueError("At least one of before_callback and above_callback must be non-None")
@@ -125,6 +139,10 @@ def flat_profile(
             target_func=func,
             wrapper=_record_call_time,
             decorator_name="flat_profile",
+            ignore_builtins=ignore_builtins,
+            blacklist=blacklist,
+            whitelist=whitelist,
+            rewrite_details=rewrite_details,
         )
 
         @functools.wraps(func)
