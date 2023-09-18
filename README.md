@@ -158,6 +158,30 @@ Wrapping calls is only one way source can be modified. Creating your own functio
 2. Pass a target function and your transformer(s) to [rewrite_function()](recompyle/rewrite/rewrite_function.py). This will return a new function, modified and recompiled to include the transformations.
 3. If the transformers support configuration, that can be handled by placing this process inside of another function. If the new function should replace the original, then this configuration is best done through a decorator.
 
+# Performance
+
+Performance has been measured using a [script](recompyle/performance.py) with multiple versions of a simple function with 10 calls, one of which is unmodified by Recompyle to serve as a reference for others that use the `rewrite_wrap_calls` and `shallow_call_profiler` decorators. The numbers below are from running this script on an i7-6700K CPU, running Windows 10 with other software open at the same time.
+
+```text
+Running unwrapped function 100,000 times, repeat 100/100: average 0.7551001199990424 microseconds
+Running simple wrapper 100,000 times, repeat 100/100: average 2.9637044099998096 microseconds
+Running shallow profiler w/ no callback 100,000 times, repeat 100/100: average 6.887421499999801 microseconds
+Running shallow profiler w/ default below callback 100,000 times, repeat 100/100: average 8.354579400000876 microseconds
+Running shallow profiler w/ default above callback 100,000 times, repeat 100/100: average 15.773746630000277 microseconds
+
+Simple wrapper call cost is 0.2208604290000767 microseconds per wrapped call
+Shallow profiler call cost is 0.6132321380000759 microseconds per wrapped call
+Shallow profiler default below callback costs 1.4671579000010748 microseconds
+Shallow profiler default above callback costs 8.886325130000476 microseconds
+```
+
+The wrapper function used for testing `rewrite_wrap_calls` does nothing outside of running the wrapped call, and so represents a bare minimum cost (~0.221 μs) that any further code in a wrapper would add onto. The shallow profiler implements a call wrapper that records times before/after each call, and its ~0.613 μs addition to runtime cost includes the 0.221 minimum.
+
+With these numbers if you applied the shallow profiler to a function with 100 calls that are wrapped, used the default logging callbacks, and total function runtime was generally below the profiler time limit ("below" callback is triggered), then the shallow profiler would add a total of only (100 * 0.613) + 1.467 = 62.767 μs to the execution time of the function. When the execution time is high enough to trigger the more costly "above" default callback (which processes and sorts call times to include them in its log message) this cost increases to 70.186 μs.
+
+While this performance will differ across devices, with results of a small fraction of a millisecond this indicates the performance impact will typically be insignficant. This meets the original goal of being able to continuously monitor a function in a production system, especially if it is run infrequently such as once a second or less often.
+
+To check performance on other devices, this script can be run with the command `python -m recompyle.performance`.
 
 # Background
 
