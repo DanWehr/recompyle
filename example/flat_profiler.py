@@ -1,7 +1,7 @@
 import logging
 import time
 
-from recompyle import shallow_call_profiler
+from recompyle import flat_profile
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ def faster_function() -> None:
     time.sleep(0.001)
 
 
-@shallow_call_profiler(time_limit=0.3)
+@flat_profile(time_limit=0.3)
 def example_function(count: int) -> str:
     """Function we are rewriting to time calls."""
     faster_function()

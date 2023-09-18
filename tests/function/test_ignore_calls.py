@@ -3,7 +3,7 @@ Tests/examples for call wrapping while limiting which calls get wrapped.
 """
 import logging
 
-from recompyle import rewrite_wrap_calls
+from recompyle import wrap_calls
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def other_function():
     return
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, ignore_builtins=True)
+@wrap_calls(wrapper=basic_wrapper, ignore_builtins=True)
 def with_builtins():
     for _ in (int(v) for v in range(5)):
         pass
@@ -45,21 +45,21 @@ class A:
     b = [B()]
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, blacklist={"A", "a.b[0].c[c].c_2"})
+@wrap_calls(wrapper=basic_wrapper, blacklist={"A", "a.b[0].c[c].c_2"})
 def complex_blacklist():
     a = A()
     a.b[0].c["c"].c_1()
     return a.b[0].c["c"].c_2()
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, blacklist={"a.b[0].c[*].c_2"})
+@wrap_calls(wrapper=basic_wrapper, blacklist={"a.b[0].c[*].c_2"})
 def complex_blacklist_wildcard():
     a = A()
     a.b[0].c["c"].c_1()
     return a.b[0].c["c"].c_2()
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper, whitelist={"a.b[0].c[*].c_1"})
+@wrap_calls(wrapper=basic_wrapper, whitelist={"a.b[0].c[*].c_1"})
 def complex_whitelist_wildcard():
     a = A()
     a.b[0].c["c"].c_1()

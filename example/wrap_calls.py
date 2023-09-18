@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
-from recompyle import rewrite_wrap_calls
+from recompyle import wrap_calls
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -21,7 +21,7 @@ def other_function(val: float) -> str:
     return f"other val: {val}"
 
 
-@rewrite_wrap_calls(wrap_call=basic_wrapper)
+@wrap_calls(wrapper=basic_wrapper)
 def example_function(count: int) -> str:
     """Function we are rewriting to wrap calls."""
     for _ in (int(v) for v in range(count)):

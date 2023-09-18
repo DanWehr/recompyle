@@ -2,7 +2,7 @@ import traceback
 
 import pytest
 
-from recompyle import rewrite_wrap_calls
+from recompyle import wrap_calls
 
 
 def wrapper_with_exc(__call, *args, **kwargs):
@@ -21,18 +21,18 @@ def secondary_no_exc():
     pass
 
 
-@rewrite_wrap_calls(wrap_call=wrapper_with_exc)
+@wrap_calls(wrapper=wrapper_with_exc)
 def func_with_wrapper_exc():
     secondary_no_exc()
 
 
-@rewrite_wrap_calls(wrap_call=wrapper_no_exc)
+@wrap_calls(wrapper=wrapper_no_exc)
 def func_with_inner_exc():
     secondary_no_exc()
     raise ValueError("TestErr")
 
 
-@rewrite_wrap_calls(wrap_call=wrapper_no_exc)
+@wrap_calls(wrapper=wrapper_no_exc)
 def func_with_deeper_exc():
     secondary_with_exc()
 

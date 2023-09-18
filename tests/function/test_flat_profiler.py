@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 import pytest
 
-from recompyle import shallow_call_profiler
+from recompyle import flat_profile
 
 last_total: float = None
 last_limit: float = None
@@ -41,26 +41,26 @@ def delay_func(delay_time: float):
     time.sleep(delay_time)
 
 
-@shallow_call_profiler(time_limit=0.2, below_callback=get_args, above_callback=None)
+@flat_profile(time_limit=0.2, below_callback=get_args, above_callback=None)
 def custom_below_callback(delay_time: float):
     delay_func(delay_time)
     return sum(int(x) for x in range(3))
 
 
-@shallow_call_profiler(time_limit=0.2, below_callback=None, above_callback=get_args)
+@flat_profile(time_limit=0.2, below_callback=None, above_callback=get_args)
 def custom_above_callback(delay_time: float):
     delay_func(delay_time)
     return sum(int(x) for x in range(3))
 
 
-@shallow_call_profiler(time_limit=0.2)
+@flat_profile(time_limit=0.2)
 def default_callbacks(delay_time: float):
     delay_func(delay_time)
     return sum(int(x) for x in range(3))
 
 
 @pytest.mark.usefixtures("_wipe_args")
-class TestShallowCallProfiler:
+class TestFlatProfiler:
     def verify_callback_args(self, func_name, limit):
         """Helper function that checks all times were recorded that should have been."""
         delay_times = last_times.pop("delay_func")

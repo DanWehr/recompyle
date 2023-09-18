@@ -1,6 +1,7 @@
 import functools
 import logging
 import time
+import warnings
 from collections import defaultdict
 from collections.abc import Callable, Generator
 from operator import itemgetter
@@ -20,7 +21,7 @@ class ProfilerCallback(Protocol):
     """Profiler callback protocol."""
 
     def __call__(self, total: float, limit: float, times: TimeDict, func: Callable) -> None:
-        """Callback to run after function transformed with shallow_call_profiler is executed.
+        """Callback to run after the function transformed with flat_profile is executed.
 
         Args:
             total (float): Total execution time of the function.
@@ -68,7 +69,7 @@ def _find_name(call: Callable) -> str:
         return type(call).__name__
 
 
-def shallow_call_profiler(
+def flat_profile(
     *,
     time_limit: float,
     below_callback: ProfilerCallback | None = default_below_log,
@@ -122,7 +123,70 @@ def shallow_call_profiler(
         """Decorator to measure total call time and inner call times."""
         _new_func = rewrite_wrap_calls_func(
             target_func=func,
-            wrap_call=_record_call_time,
+            wrapper=_record_call_time,
+            decorator_name="flat_profile",
+        )
+
+        @functools.wraps(func)
+        def inner_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            start = time.perf_counter()
+            try:
+                return _new_func(*args, **kwargs)
+            finally:
+                duration = time.perf_counter() - start
+                if below_callback is not None and duration < time_limit:
+                    below_callback(duration, time_limit, _call_times.copy(), _new_func)
+                elif above_callback is not None and duration >= time_limit:
+                    above_callback(duration, time_limit, _call_times.copy(), _new_func)
+                _call_times.clear()
+
+        return inner_wrapper
+
+    return _measure_calls
+
+
+def shallow_call_profiler(
+    *,
+    time_limit: float,
+    below_callback: ProfilerCallback | None = default_below_log,
+    above_callback: ProfilerCallback | None = default_above_log,
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Deprecated, use `recompyle.flat_profile` instead."""
+    warnings.warn(
+        "'shallow_call_profiler' has been renamed to 'flat_profile' as of 0.2.0. The old name will be removed in 0.3.0.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+    if below_callback is None and above_callback is None:
+        raise ValueError("At least one of before_callback and above_callback must be non-None")
+
+    _call_times: defaultdict[str, list[float]] = defaultdict(list)
+    _call_names: dict[object, str] = {}
+
+    def _get_name(call: Callable) -> str:
+        """Use stored callable name or find if the callable is new."""
+        try:
+            return _call_names[call]
+        except KeyError:
+            pass
+
+        _call_names[call] = _find_name(call)
+        return _call_names[call]
+
+    def _record_call_time(__call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+        """Wrapper to record execution time of inner calls."""
+        start = time.perf_counter()
+        try:
+            return __call(*args, **kwargs)
+        finally:
+            end = time.perf_counter()
+            _call_times[_get_name(__call)].append(end - start)
+
+    def _measure_calls(func: Callable[P, T]) -> Callable[P, T]:
+        """Decorator to measure total call time and inner call times."""
+        _new_func = rewrite_wrap_calls_func(
+            target_func=func,
+            wrapper=_record_call_time,
             decorator_name="shallow_call_profiler",
         )
 
