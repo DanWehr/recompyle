@@ -5,7 +5,6 @@ from collections.abc import Callable
 import pytest
 
 from recompyle import shallow_call_profiler
-from recompyle.applied import shallow_profiler
 
 last_total: float = None
 last_limit: float = None
@@ -42,19 +41,19 @@ def delay_func(delay_time: float):
     time.sleep(delay_time)
 
 
-@shallow_call_profiler(time_limit=0.7, below_callback=get_args)
-def override_below_callback():
-    delay_func(0.5)
+@shallow_call_profiler(time_limit=0.2, below_callback=get_args, above_callback=None)
+def custom_below_callback(delay_time: float):
+    delay_func(delay_time)
     return sum(int(x) for x in range(3))
 
 
-@shallow_call_profiler(time_limit=0.3, above_callback=get_args)
-def override_above_callback():
-    delay_func(0.5)
+@shallow_call_profiler(time_limit=0.2, below_callback=None, above_callback=get_args)
+def custom_above_callback(delay_time: float):
+    delay_func(delay_time)
     return sum(int(x) for x in range(3))
 
 
-@shallow_call_profiler(time_limit=0.5)
+@shallow_call_profiler(time_limit=0.2)
 def default_callbacks(delay_time: float):
     delay_func(delay_time)
     return sum(int(x) for x in range(3))
@@ -76,32 +75,46 @@ class TestShallowCallProfiler:
         assert last_func.__name__ == func_name
         assert last_limit == limit
 
-    def test_override_below(self):
+    def test_custom_below(self):
         """Custom callback is used when below the limit."""
-        assert override_below_callback() == 3
-        self.verify_callback_args("override_below_callback", 0.7)
+        assert custom_below_callback(0.1) == 3
+        self.verify_callback_args("custom_below_callback", 0.2)
         assert last_total < last_limit
 
-    def test_override_above(self):
+    def test_custom_below_norun(self):
+        """No below callback run when above limit and above is None."""
+        assert custom_below_callback(0.3) == 3
+        assert last_total is None
+        assert last_limit is None
+        assert last_times is None
+        assert last_func is None
+
+    def test_custom_above(self):
         """Custom callback is used when above the limit."""
-        assert override_above_callback() == 3
-        self.verify_callback_args("override_above_callback", 0.3)
+        assert custom_above_callback(0.3) == 3
+        self.verify_callback_args("custom_above_callback", 0.2)
         assert last_total > last_limit
 
-    def test_default_below(self, mocker, caplog):
+    def test_custom_above_norun(self):
+        """No above callback run when below limit and below is None."""
+        assert custom_above_callback(0.1) == 3
+        assert last_total is None
+        assert last_limit is None
+        assert last_times is None
+        assert last_func is None
+
+    def test_default_below(self, caplog):
         """Default callback is used when below the limit."""
-        spy = mocker.spy(shallow_profiler, "default_below_log")
+        with caplog.at_level(logging.INFO):
+            assert default_callbacks(delay_time=0.1) == 3
+        assert len(caplog.records) == 1
+        assert "below limit" in caplog.records[0].message
+        assert "delay_func" not in caplog.records[0].message  # Log doesn't have call info.
+
+    def test_default_above(self, caplog):
+        """Default callback is used when above the limit."""
         with caplog.at_level(logging.INFO):
             assert default_callbacks(delay_time=0.3) == 3
         assert len(caplog.records) == 1
-        assert "below limit" in caplog.records[0].message
-        assert "delay_func" not in caplog.records[0].message
-
-    def test_default_above(self, mocker, caplog):
-        """Default callback is used when above the limit."""
-        spy = mocker.spy(shallow_profiler, "default_above_log")
-        with caplog.at_level(logging.INFO):
-            assert default_callbacks(delay_time=0.7) == 3
-        assert len(caplog.records) == 1
         assert "above limit" in caplog.records[0].message
-        assert "delay_func" in caplog.records[0].message
+        assert "delay_func" in caplog.records[0].message  # Log has call info.
