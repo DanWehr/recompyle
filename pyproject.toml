@@ -4,7 +4,7 @@ dynamic = ["version"]
 authors = [
     { name = "Daniel Wehr", email = "danwehr@gmail.com" },
 ]
-description = "Tools for modifying source at runtime. Shallow profiling of critical functions. Wrap all calls in a function."
+description = "Tools for modifying source at runtime. Flat profiling of critical functions. Wrap all calls in a function."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

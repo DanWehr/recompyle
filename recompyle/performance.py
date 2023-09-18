@@ -1,7 +1,7 @@
 import timeit
 from statistics import mean
 
-from recompyle import shallow_call_profiler, wrap_calls
+from recompyle import flat_profile, wrap_calls
 
 
 def simple_wrapper(__call, *args, **kwargs):
@@ -39,7 +39,7 @@ def wrapped_simple():
     other(0, val2=1)
 
 
-@shallow_call_profiler(time_limit=100, below_callback=None)
+@flat_profile(time_limit=100, below_callback=None)
 def wrapped_profiler():
     other(0, val2=1)
     other(0, val2=1)
@@ -53,7 +53,7 @@ def wrapped_profiler():
     other(0, val2=1)
 
 
-@shallow_call_profiler(time_limit=100)  # Default below callback will always run
+@flat_profile(time_limit=100)  # Default below callback will always run
 def wrapped_profiler_below():
     other(0, val2=1)
     other(0, val2=1)
@@ -67,7 +67,7 @@ def wrapped_profiler_below():
     other(0, val2=1)
 
 
-@shallow_call_profiler(time_limit=0)  # Default above callback will always run
+@flat_profile(time_limit=0)  # Default above callback will always run
 def wrapped_profiler_above():
     other(0, val2=1)
     other(0, val2=1)
@@ -102,11 +102,11 @@ def collect_times(stmt, label):
 if __name__ == "__main__":
     base_avg_us = collect_times("unwrapped()", "unwrapped function")
     simple_avg_us = collect_times("wrapped_simple()", "simple wrapper")
-    profiler_avg_us = collect_times("wrapped_profiler()", "shallow profiler w/ no callback")
-    profiler_below_us = collect_times("wrapped_profiler_below()", "shallow profiler w/ default below callback")
-    profiler_above_us = collect_times("wrapped_profiler_above()", "shallow profiler w/ default above callback")
+    profiler_avg_us = collect_times("wrapped_profiler()", "flat profiler w/ no callback")
+    profiler_below_us = collect_times("wrapped_profiler_below()", "flat profiler w/ default below callback")
+    profiler_above_us = collect_times("wrapped_profiler_above()", "flat profiler w/ default above callback")
 
     print("\nSimple wrapper call cost is", (simple_avg_us - base_avg_us) / calls, "microseconds per wrapped call")
-    print("Shallow profiler call cost is", (profiler_avg_us - base_avg_us) / calls, "microseconds per wrapped call")
-    print("Shallow profiler default below callback costs", profiler_below_us - profiler_avg_us, "microseconds")
-    print("Shallow profiler default above callback costs", profiler_above_us - profiler_avg_us, "microseconds")
+    print("Flat profiler call cost is", (profiler_avg_us - base_avg_us) / calls, "microseconds per wrapped call")
+    print("Flat profiler default below callback costs", profiler_below_us - profiler_avg_us, "microseconds")
+    print("Flat profiler default above callback costs", profiler_above_us - profiler_avg_us, "microseconds")

@@ -89,7 +89,7 @@ Only the `wrapper` parameter is required, and there are a number of optional par
 For further examples of `wrap_calls` see the tests in [test_rewrite_basic.py](tests/function/test_rewrite_basic.py). For examples of using the blacklist and whitelist, see [test_ignore_calls.py](tests/function/test_ignore_calls.py).
 
 
-## Using the `shallow_call_profiler` decorator
+## Using the `flat_profile` decorator
 
 This decorator uses call wrapping internally to record the execution times of all calls, in addition to the total execution time of the function. A time limit must be provided, and if the total time is below/above that limit then below/above callbacks will run.
 
@@ -101,7 +101,7 @@ Multiple call times for the same name (e.g. from multiple `int()` calls) will be
 import logging
 import time
 
-from recompyle import shallow_call_profiler
+from recompyle import flat_profile
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def faster_function() -> None:
     time.sleep(0.001)
 
 
-@shallow_call_profiler(time_limit=0.3)
+@flat_profile(time_limit=0.3)
 def example_function(count: int) -> str:
     """Function we are rewriting to time calls."""
     faster_function()
@@ -133,7 +133,7 @@ log.info(example_function(2))
 This will produce the following log output:
 
 ```text
-INFO:recompyle.applied.shallow_profiler:example_function finished in 0.506083s, above limit of 0.3s
+INFO:recompyle.applied.flat_profiler:example_function finished in 0.506083s, above limit of 0.3s
 ('slow_function: 0.504s',
  'faster_function: 0.00175s',
  'int: 1.3e-06s',
@@ -147,7 +147,7 @@ Only the `time_limit` parameter is required. Several optional parameters are ava
 - `below_callback` (Callable | None): Called when execution time is under the time limit.
 - `above_callback` (Callable | None): Called when execution time is equal to or over the time limit.
 
-A custom callback used in place of the default `below_callback` or `above_callback`. See [ProfilerCallback](recompyle/applied/shallow_profiler.py) for details on the callback arguments.
+A custom callback used in place of the default `below_callback` or `above_callback`. See [ProfilerCallback](recompyle/applied/flat_profiler.py) for details on the callback arguments.
 
 
 ## Custom Function Transformations
@@ -160,24 +160,24 @@ Wrapping calls is only one way source can be modified. Creating your own functio
 
 # Performance
 
-Performance has been measured using a [script](recompyle/performance.py) with multiple versions of a simple function with 10 calls, one of which is unmodified by Recompyle to serve as a reference for others that use the `wrap_calls` and `shallow_call_profiler` decorators. The numbers below are from running this script on an i7-6700K CPU, running Windows 10 with other software open at the same time.
+Performance has been measured using a [script](recompyle/performance.py) with multiple versions of a simple function with 10 calls, one of which is unmodified by Recompyle to serve as a reference for others that use the `wrap_calls` and `flat_profile` decorators. The numbers below are from running this script on an i7-6700K CPU, running Windows 10 with other software open at the same time.
 
 ```text
 Running unwrapped function 100,000 times, repeat 100/100: average 0.7551001199990424 microseconds
 Running simple wrapper 100,000 times, repeat 100/100: average 2.9637044099998096 microseconds
-Running shallow profiler w/ no callback 100,000 times, repeat 100/100: average 6.887421499999801 microseconds
-Running shallow profiler w/ default below callback 100,000 times, repeat 100/100: average 8.354579400000876 microseconds
-Running shallow profiler w/ default above callback 100,000 times, repeat 100/100: average 15.773746630000277 microseconds
+Running flat profiler w/ no callback 100,000 times, repeat 100/100: average 6.887421499999801 microseconds
+Running flat profiler w/ default below callback 100,000 times, repeat 100/100: average 8.354579400000876 microseconds
+Running flat profiler w/ default above callback 100,000 times, repeat 100/100: average 15.773746630000277 microseconds
 
 Simple wrapper call cost is 0.2208604290000767 microseconds per wrapped call
-Shallow profiler call cost is 0.6132321380000759 microseconds per wrapped call
-Shallow profiler default below callback costs 1.4671579000010748 microseconds
-Shallow profiler default above callback costs 8.886325130000476 microseconds
+Flat profiler call cost is 0.6132321380000759 microseconds per wrapped call
+Flat profiler default below callback costs 1.4671579000010748 microseconds
+Flat profiler default above callback costs 8.886325130000476 microseconds
 ```
 
-The wrapper function used for testing `wrap_calls` does nothing outside of running the wrapped call, and so represents a bare minimum cost (~0.221 μs) that any further code in a wrapper would add onto. The shallow profiler implements a call wrapper that records times before/after each call, and its ~0.613 μs addition to runtime cost includes the 0.221 minimum.
+The wrapper function used for testing `wrap_calls` does nothing outside of running the wrapped call, and so represents a bare minimum cost (~0.221 μs) that any further code in a wrapper would add onto. The flat profiler implements a call wrapper that records times before/after each call, and its ~0.613 μs addition to runtime cost includes the 0.221 minimum.
 
-With these numbers if you applied the shallow profiler to a function with 100 calls that are wrapped, used the default logging callbacks, and total function runtime was generally below the profiler time limit ("below" callback is triggered), then the shallow profiler would add a total of only (100 * 0.613) + 1.467 = 62.767 μs to the execution time of the function. When the execution time is high enough to trigger the more costly "above" default callback (which processes and sorts call times to include them in its log message) this cost increases to 70.186 μs.
+With these numbers if you applied the flat profiler to a function with 100 calls that are wrapped, used the default logging callbacks, and total function runtime was generally below the profiler time limit ("below" callback is triggered), then the flat profiler would add a total of only (100 * 0.613) + 1.467 = 62.767 μs to the execution time of the function. When the execution time is high enough to trigger the more costly "above" default callback (which processes and sorts call times to include them in its log message) this cost increases to 70.186 μs.
 
 While this performance will differ across devices, with results of a small fraction of a millisecond this indicates the performance impact will typically be insignficant. This meets the original goal of being able to continuously monitor a function in a production system, especially if it is run infrequently such as once a second or less often.
 
@@ -190,11 +190,11 @@ Recompyle came from wanting to monitor execution time of a function in a product
 A full call stack would be the most useful which you can get through tools like the builtin cProfile, but there is typically enough overhead that it is not feasible for use in production. One way to address that overhead would be to only periodically profile the program (such as in statistical profiling), but that is primarily useful for monitoring your average execution behavior. If you want to watch for abnormal cases like a slowdown that happens rarely (say once a day), you need to be able to monitor the relevant code continuously, evaluating every execution to catch that rare event. For this to be possible, overhead must be very low.
 
 
-## Shallow Profiler
+## Flat Profiler
 
-One way to handle the problem of profiling overhead would be to limit the scope of that profiling. Recompyle attempts to address this with a "shallow profiler" (`recompyle.shallow_call_profiler`) that can capture the execution times of *all* calls within a decorated function, and *only* the calls within that function. It does not go deeper and profile the full call stack. Reduced overhead was a major goal for this work.
+One way to handle the problem of profiling overhead would be to limit the scope of that profiling. Recompyle attempts to address this with a "flat profiler" (`recompyle.flat_profile`) that can capture the execution times of *all* calls within a decorated function, and *only* the calls within that function. It does not go deeper and profile the full call stack. Reduced overhead was a major goal for this work.
 
-The shallow profiler records the execution times of all callables in the decorated function or method, and if the total execution time is greater than a configurable time limit, the times of all internal calls will be logged in addition to the total.
+The flat profiler records the execution times of all callables in the decorated function or method, and if the total execution time is greater than a configurable time limit, the times of all internal calls will be logged in addition to the total.
 
 
 ## Recompiling Functions
@@ -235,9 +235,9 @@ Note also that in the rewritten version of the function above, the `wrap_calls` 
 
 ## Beyond Profiling
 
-While this project started with a goal of creating the shallow call profiler, it quickly expanded to a larger goal. There are many packages that use ASTs to modify code, but typically this rewrite and recompile process is not very accessible and it can be difficult to understand how the process works. You're stuck with reading source code and building something yourself from scratch.
+While this project started with a goal of creating the flat profiler, it quickly expanded to a larger goal. There are many packages that use ASTs to modify code, but typically this rewrite and recompile process is not very accessible and it can be difficult to understand how the process works. You're stuck with reading source code and building something yourself from scratch.
 
-Recompyle attempts to make AST manipulation more accessible by providing a number of classes and functions that can either be reused directly in other projects, or at least serve as a clearer reference for your own custom code. The shallow profiler itself is now implemented using a more generic call wrapper that can easily be used to execute any code before/after calls.
+Recompyle attempts to make AST manipulation more accessible by providing a number of classes and functions that can either be reused directly in other projects, or at least serve as a clearer reference for your own custom code. The flat profiler itself is now implemented using a more generic call wrapper that can easily be used to execute any code before/after calls.
 
 So far this package only provides tools for rewriting functions and wrapping calls within them, but it is intended for this to expand to include more transformers, and different targets beyond functions such as rewriting classes or modules as well. Suggestions are welcome!
 
