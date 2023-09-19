@@ -122,6 +122,8 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
                 return f"{self._build_name(next_node)}.{name}"
             case ast.Subscript(value=next_node, slice=inner):
                 return f"{self._build_name(next_node)}[{self._build_name(inner)}]"
+            case ast.Call(func=func):
+                return f"{self._build_name(func)}"
             case _:
                 raise TypeError(f"Unknown call node type: {type(node)}")
 
