@@ -14,3 +14,11 @@ repos:
     hooks:
     -   id: isort
         args: ["--profile", "black", "--filter-files"]
+-   repo: local
+    hooks:
+    -   id: hatch-test
+        name: hatch-test
+        entry: hatch run test:test
+        language: system
+        pass_filenames: false
+        always_run: true

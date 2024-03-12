@@ -28,7 +28,7 @@ Issues = "https://github.com/DanWehr/recompyle/issues"
 Repository = "https://github.com/DanWehr/recompyle.git"
 
 [build-system]
-requires = ["hatchling>=1.18"]
+requires = ["hatchling>=1.19"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -48,17 +48,13 @@ dependencies = [
 python = ["3.10", "3.11"]
 
 [tool.hatch.envs.test.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-    "- coverage combine",
-    "coverage report"
-]
+test = "pytest {args}"
+cov-report = "coverage report"
 cov = [
-    "test-cov",
+    "coverage run --branch -m pytest {args}",
     "cov-report"
 ]
-list = "pip list"
+pip-list = "pip list"
 
 [tool.coverage.paths]
 recompyle = ["recompyle", "*/recompyle/recompyle"]
