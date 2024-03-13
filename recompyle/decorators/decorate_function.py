@@ -10,35 +10,6 @@ T = TypeVar("T")
 WrapP = ParamSpec("WrapP")
 
 
-def rewrite_wrap_calls(
-    *,
-    wrap_call: CallWrapper[WrapP],
-    ignore_builtins: bool = False,
-    blacklist: set[str] | None = None,
-    whitelist: set[str] | None = None,
-    rewrite_details: dict | None = None,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Deprecated, use `recompyle.wrap_calls` instead."""
-    warnings.warn(
-        "'rewrite_wrap_calls' has been renamed to 'wrap_calls' as of 0.2.0. The old name will be removed in 0.3.0.",
-        category=DeprecationWarning,
-        stacklevel=2,
-    )
-
-    def _call_wrapper(target_func: Callable[P, T]) -> Callable[P, T]:
-        return rewrite_wrap_calls_func(
-            target_func=target_func,
-            wrapper=wrap_call,
-            decorator_name="rewrite_wrap_calls",
-            ignore_builtins=ignore_builtins,
-            blacklist=blacklist,
-            whitelist=whitelist,
-            rewrite_details=rewrite_details,
-        )
-
-    return _call_wrapper
-
-
 def wrap_calls(
     *,
     wrapper: CallWrapper[WrapP],
