@@ -17,6 +17,8 @@ WrapP = ParamSpec("WrapP")
 
 WRAP_NAME = "_recompyle_wrap"
 
+DECORATOR_STORE: dict[str, str | None] = {}
+
 
 class CallWrapper(Protocol[P]):
     """Call wrapper protocol."""
@@ -123,7 +125,7 @@ class FunctionRewriter:
         self._tree = transformer.visit(self._tree)
         # Adjust lineno for correct tracebacks, different depending on transform.
         self._adjust_lineno += transformer.adjust_lineno
-        ast.increment_lineno(self._tree, self.firstlineno + self._adjust_lineno)
+        ast.increment_lineno(self._tree, self.firstlineno + self._adjust_lineno - 1)
         ast.fix_missing_locations(self._tree.body[0])
 
     def compile_tree(self) -> CodeType:
@@ -224,6 +226,17 @@ def rewrite_wrap_calls_func(
     Returns:
         Callable: Rewritten function with calls wrapped.
     """
+    func_file = inspect.getsourcefile(target_func.__code__)
+    if func_file is None:
+        raise ValueError(f"Source not available for {target_func.__qualname__}")
+
+    func_id = f"{func_file}:{target_func.__qualname__}"
+    if func_id in DECORATOR_STORE:
+        if DECORATOR_STORE[func_id] == decorator_name:
+            # We have already ran the transform on this function, skip the second time.
+            return target_func
+        raise ValueError("Multiple recompyle decorators on same function not supported")
+
     # Combine blacklist with builtins if needed.
     full_blacklist = blacklist
     if ignore_builtins:
@@ -234,9 +247,11 @@ def rewrite_wrap_calls_func(
 
     # Set up transformers and locals
     transformers: list[RecompyleBaseTransformer] = [
-        WrapCallsTransformer(WRAP_NAME, decorator_name, blacklist=full_blacklist, whitelist=whitelist),
+        WrapCallsTransformer(WRAP_NAME, blacklist=full_blacklist, whitelist=whitelist),
     ]
     custom_locals: dict[str, object] = {WRAP_NAME: wrapper}  # Provide ref for kwarg default through locals.
+
+    DECORATOR_STORE[func_id] = decorator_name
 
     return rewrite_function(
         target_func=target_func,
