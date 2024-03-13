@@ -137,8 +137,6 @@ The original function is actually transformed into this alternate form by Recomp
 4. After modification, the AST is compiled back into a Python *code* object and then executed, running the new function definition and creating a new callable function object.
 5. The new function is returned by the decorator, replacing the original function.
 
-Note also that in the rewritten version of the function above, the `wrap_calls` decorator is no longer present! If not removed, when we execute the new function definition in step 4 it would rerun the decorator and transform the function again, adding another layer of call wrapping and leading to an infinite recursion and exception on loading the module.
-
 
 ## Future Additions
 

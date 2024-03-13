@@ -6,67 +6,7 @@ import re
 from recompyle.transformers.base import RecompyleBaseTransformer
 
 
-class RemoveDecoratorTransformer(RecompyleBaseTransformer):
-    """Transforms a function AST by optionally removing a decorator."""
-
-    def __init__(self, remove_decorator: str | None = None):
-        """NodeTransformer that can optionally remove a decorator from a FunctionDef.
-
-        Args:
-            remove_decorator (str | None): Name of the decorator to remove.
-        """
-        super().__init__()
-        self._dec_name = remove_decorator
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
-        """Remove decorator if provided to prevent recursion on recompile.
-
-        Args:
-            node (FunctionDef): Description
-
-        Returns:
-            FunctionDef: Node after potential decorator removal.
-
-        Raises:
-            ValueError: If decorator to remove is not found.
-        """
-        # Remove decorator if provided to prevent recursion on compile.
-        if self._dec_name is not None:
-            new_deco_list = [val for val in node.decorator_list if not self._is_deco_target(val)]
-            if len(new_deco_list) == len(node.decorator_list):
-                err_str = f"Decorator named '{self._dec_name}' not found."
-                raise ValueError(err_str)
-            node.decorator_list = new_deco_list
-            self.adjust_lineno -= 1
-
-        self.generic_visit(node)
-        return node
-
-    def _is_deco_target(self, node: ast.expr) -> bool:
-        """Check if the decorator node is the target decorator.
-
-        Args:
-            node (ast.expr): Description
-
-        Returns:
-            bool: Description
-
-        Raises:
-            TypeError: If the decorator is an unexpected node type.
-        """
-        match node:
-            case ast.Name(id=name):
-                # Decorator
-                return name == self._dec_name
-            case ast.Call(func=ast.Name(id=name)):
-                # Decorator factory
-                return name == self._dec_name
-            case _:
-                err_str = f"Decorator type {node.__class__.__name__} not supported."
-                raise TypeError(err_str)
-
-
-class WrapCallsTransformer(RemoveDecoratorTransformer):
+class WrapCallsTransformer(RecompyleBaseTransformer):
     """Transforms a function AST by wrapping every call with the given call.
 
     This assumes that when the new function definition is executed, an object with the same name
@@ -76,7 +16,6 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
     def __init__(
         self,
         wrap_call_name: str,
-        remove_decorator: str | None = None,
         blacklist: set[str] | None = None,
         whitelist: set[str] | None = None,
     ):
@@ -91,7 +30,7 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         if blacklist and whitelist:
             raise ValueError("Call blacklist and whitelist can not both be used at once")
 
-        super().__init__(remove_decorator=remove_decorator)
+        super().__init__()
         self._wrap_call_name = wrap_call_name
         self.blacklist = blacklist
         self.whitelist = whitelist
@@ -215,4 +154,10 @@ class WrapCallsTransformer(RemoveDecoratorTransformer):
         node.args.kwonlyargs.append(ast.arg(self._wrap_call_name))
         node.args.kw_defaults.append(ast.Name(id=self._wrap_call_name, ctx=ast.Load()))
 
-        return super().visit_FunctionDef(node)
+        # Temp remove decorators so they are not visited, then restore after visiting children
+        decorator_cache = node.decorator_list
+        node.decorator_list = []
+        self.generic_visit(node)
+        node.decorator_list = decorator_cache
+
+        return node

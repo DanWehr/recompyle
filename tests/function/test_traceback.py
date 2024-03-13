@@ -37,6 +37,17 @@ def func_with_deeper_exc():
     secondary_with_exc()
 
 
+def useless_wrapper(func):
+    return func
+
+
+@useless_wrapper
+@wrap_calls(wrapper=wrapper_no_exc)
+def func_with_two_deco_exc():
+    secondary_no_exc()
+    raise ValueError("TestErr")
+
+
 # THE TESTS BELOW ARE FRAGILE TESTS AS WE ARE VERIFYING LINE NUMBERS
 # MOVING ANY LINES ABOVE WILL BREAK AT LEAST ONE TEST
 
@@ -75,3 +86,11 @@ class TestWrapperTracebackDetails:
         assert tups[0] == ("func_with_deeper_exc", 37, "secondary_with_exc()")
         assert tups[1] == ("wrapper_no_exc", 13, "return __call(*args, **kwargs)")
         assert tups[2] == ("secondary_with_exc", 17, 'raise ValueError("TestErr")')
+
+    def test_with_two_deco_exc(self):
+        """Exception in wrapped function with unrelated decorator has correct line number."""
+        with pytest.raises(ValueError, match="TestErr") as exc_info:
+            func_with_two_deco_exc()
+
+        tups = self.summarize_frames(exc_info.tb, 1)
+        assert tups[0] == ("func_with_two_deco_exc", 48, 'raise ValueError("TestErr")')
