@@ -40,7 +40,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def basic_wrapper(__call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+def basic_wrapper(__call: Callable[P, T], _, *args: P.args, **kwargs: P.kwargs) -> T:
     """Basic wrapper that prints before and after each call."""
     print(f"Before {__call.__qualname__}, args: {args}, kwargs: {kwargs}")
     try:
@@ -83,6 +83,8 @@ Printing function return: 123.45
 After calling wrapped function
 ```
 
+For full information on the signature required for the wrapper, see the [CallWrapper protocol](recompyle/rewrite/rewrite_function.py).
+
 Only the `wrapper` parameter of the `wrap_calls` decorator is required, and there are a number of optional parameters to control which calls will be wrapped. The full set of parameters includes:
 
 - `wrapper` (Callable): Function or method that will wrap all calls inside target function.
@@ -124,12 +126,14 @@ Would be roughly equivalent to:
 @wrap_calls(wrapper=basic_wrapper)
 def example_function(count: int) -> str:
     """Function we are rewriting to wrap calls."""
-    for v in basic_wrapper(range, count):
-        basic_wrapper(int, v)
-    return basic_wrapper(other_function, val=123.45)
+    for v in basic_wrapper(range, ..., count):
+        basic_wrapper(int, ..., v)
+    return basic_wrapper(other_function, ..., val=123.45)
 ```
 
-The original function is actually transformed into this alternate form by Recompyle, and the function object created from this new definition replaces the old one. This works through the following process:
+The original function is actually transformed into this alternate form by Recompyle, and the function object created from this new definition replaces the old one. For brevity the second argument to the wrapper has been replaced by `...` in this example. In practice this second argument will be a dictionary that includes line and source info on the call for easy reference in the wrapper.
+
+This works through the following process:
 
 1. The original function is compiled by python and passed into the `wrap_calls` decorator. Through this function object we can find the file the function came from, and what line its source starts on.
 2. We read the original source and convert it into an Abstract Syntax Tree.

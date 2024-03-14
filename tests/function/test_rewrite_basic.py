@@ -10,7 +10,7 @@ from recompyle import wrap_calls
 log = logging.getLogger(__name__)
 
 
-def basic_wrapper(__call, *args, **kwargs):
+def basic_wrapper(__call, _, *args, **kwargs):
     """Basic wrapper that creates two logs per call."""
     log.info(f"Before {__call.__qualname__}")
     try:

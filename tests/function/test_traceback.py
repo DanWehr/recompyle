@@ -5,11 +5,11 @@ import pytest
 from recompyle import wrap_calls
 
 
-def wrapper_with_exc(__call, *args, **kwargs):
+def wrapper_with_exc(__call, _, *args, **kwargs):
     raise ValueError("TestErr")
 
 
-def wrapper_no_exc(__call, *args, **kwargs):
+def wrapper_no_exc(__call, _, *args, **kwargs):
     return __call(*args, **kwargs)
 
 

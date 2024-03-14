@@ -18,6 +18,7 @@ class WrapCallsTransformer(RecompyleBaseTransformer):
         wrap_call_name: str,
         blacklist: set[str] | None = None,
         whitelist: set[str] | None = None,
+        initial_line: int = 0,
     ):
         """Store `wrap_call` for wrapping calls.
 
@@ -34,6 +35,7 @@ class WrapCallsTransformer(RecompyleBaseTransformer):
         self._wrap_call_name = wrap_call_name
         self.blacklist = blacklist
         self.whitelist = whitelist
+        self._initial_line = initial_line
 
     def _build_name(self, node: ast.expr) -> str:
         """Recursively builds a call name from an AST.
@@ -129,9 +131,15 @@ class WrapCallsTransformer(RecompyleBaseTransformer):
             Call: Node after changes.
         """
         if self._allow_wrap_call(node):
+            start, end, i = node.lineno, node.end_lineno, self._initial_line
+            extras = {
+                "ln_range": (start + i, end + i) if end is not None and end != start else (start + i,),
+                "source": ast.unparse(node),
+            }
+            extras_tree = ast.parse(repr(extras)).body[0].value
             new_node = ast.Call(
                 ast.Name(self._wrap_call_name, ast.Load()),
-                args=[node.func, *node.args],
+                args=[node.func, extras_tree, *node.args],
                 keywords=node.keywords,
             )
             ast.copy_location(new_node, node)
