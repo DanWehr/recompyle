@@ -1,4 +1,3 @@
-import warnings
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 

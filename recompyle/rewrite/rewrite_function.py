@@ -5,7 +5,7 @@ import inspect
 from collections.abc import Callable
 from textwrap import dedent
 from types import CodeType, FunctionType
-from typing import ParamSpec, Protocol, TypeVar, cast
+from typing import ParamSpec, Protocol, TypedDict, TypeVar, cast
 
 from recompyle.transformers import WrapCallsTransformer
 from recompyle.transformers.base import RecompyleBaseTransformer
@@ -20,24 +20,41 @@ WRAP_NAME = "_recompyle_wrap"
 DECORATOR_STORE: dict[str, str | None] = {}
 
 
+class CallExtras(TypedDict):
+    """Extra details of original call.
+
+    Attributes:
+        ln_range (int): Line range of wrapped call source
+        source (str): Source code of wrapped call
+    """
+
+    ln_range: tuple[int] | tuple[int, int]
+    source: str
+
+
 class CallWrapper(Protocol[P]):
     """Call wrapper protocol."""
 
-    def __call__(self, __call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    def __call__(self, __call: Callable[P, T], __extras: CallExtras, *args: P.args, **kwargs: P.kwargs) -> T:
         """Callable that can run extra code before/after a call.
 
         It must run the `__call` with the given args and kwargs, and return the call's return value:
-            return __call(*args, **kwargs)
+            `return __call(*args, **kwargs)`
+
+        Args:
+            __call (Callable[P, T]): The call that was wrapped
+            __extras (CallExtras): Dict with original line and source details
+            *args (P.args): The args of the wrapped call
+            **kwargs (P.kwargs): The kwargs of the wrapped call
+
+        Returns:
+            T: The return of __call
         """
         ...
 
 
 class FunctionRewriter:
-    """Stores and processes the target function.
-
-    Attributes:
-        target_func (FunctionType): The original function being processed.
-    """
+    """Stores and processes the target function."""
 
     def __init__(self, target_func: Callable):
         """Store and process the target function.
@@ -247,7 +264,12 @@ def rewrite_wrap_calls_func(
 
     # Set up transformers and locals
     transformers: list[RecompyleBaseTransformer] = [
-        WrapCallsTransformer(WRAP_NAME, blacklist=full_blacklist, whitelist=whitelist),
+        WrapCallsTransformer(
+            WRAP_NAME,
+            blacklist=full_blacklist,
+            whitelist=whitelist,
+            initial_line=target_func.__code__.co_firstlineno - 1,
+        ),
     ]
     custom_locals: dict[str, object] = {WRAP_NAME: wrapper}  # Provide ref for kwarg default through locals.
 
