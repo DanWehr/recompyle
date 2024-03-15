@@ -37,7 +37,6 @@ def wrap_calls(
         return rewrite_wrap_calls_func(
             target_func=target_func,
             wrapper=wrapper,
-            decorator_name="wrap_calls",
             ignore_builtins=ignore_builtins,
             blacklist=blacklist,
             whitelist=whitelist,
