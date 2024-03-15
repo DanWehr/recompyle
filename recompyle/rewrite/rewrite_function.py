@@ -17,7 +17,7 @@ WrapP = ParamSpec("WrapP")
 
 WRAP_NAME = "_recompyle_wrap"
 
-DECORATOR_STORE: dict[str, str | None] = {}
+ALREADY_RECOMPYLED: set[str] = set()
 
 
 class CallExtras(TypedDict):
@@ -212,7 +212,6 @@ def rewrite_wrap_calls_func(
     *,
     target_func: Callable[P, T],
     wrapper: CallWrapper[WrapP],
-    decorator_name: str | None = None,
     ignore_builtins: bool = False,
     blacklist: set[str] | None = None,
     whitelist: set[str] | None = None,
@@ -224,14 +223,9 @@ def rewrite_wrap_calls_func(
     will be passed into the rewritten target function through the keyword-only arg `_recompyle_wrap` which is added
     during the rewrite.
 
-    If this is being used inside of a decorator, the name of that decorator must also be provided so that the decorator
-    can be removed during the rewrite. Without this the decorator will be called again when recompiling the function,
-    causing a crash due to infinite recursion.
-
     Args:
         target_func (Callable): The function/method to rewrite.
         wrapper (CallWrapper): The function to pass all calls through.
-        decorator_name (str): The decorator name.
         ignore_builtins (bool): Whether to skip wrapping builtin calls.
         blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
             quotes, e.g. a pattern of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an
@@ -248,11 +242,8 @@ def rewrite_wrap_calls_func(
         raise ValueError(f"Source not available for {target_func.__qualname__}")
 
     func_id = f"{func_file}:{target_func.__qualname__}"
-    if func_id in DECORATOR_STORE:
-        if DECORATOR_STORE[func_id] == decorator_name:
-            # We have already ran the transform on this function, skip the second time.
-            return target_func
-        raise ValueError("Multiple recompyle decorators on same function not supported")
+    if func_id in ALREADY_RECOMPYLED:
+        raise ValueError("Multiple recompyle runs on same function not supported")
 
     # Combine blacklist with builtins if needed.
     full_blacklist = blacklist
@@ -273,11 +264,11 @@ def rewrite_wrap_calls_func(
     ]
     custom_locals: dict[str, object] = {WRAP_NAME: wrapper}  # Provide ref for kwarg default through locals.
 
-    DECORATOR_STORE[func_id] = decorator_name
-
-    return rewrite_function(
+    result = rewrite_function(
         target_func=target_func,
         transformers=transformers,
         custom_locals=custom_locals,
         rewrite_details=rewrite_details,
     )
+    ALREADY_RECOMPYLED.add(func_id)
+    return result

@@ -24,9 +24,9 @@ class WrapCallsTransformer(RecompyleBaseTransformer):
 
         Args:
             wrap_call_name (str): Callable to wrap all calls with.
-            remove_decorator (str | None): Name of the decorator to remove.
             blacklist (set[str] | None): Optional call names that should not be wrapped.
             whitelist (set[str] | None): Optional call names that should be wrapped.
+            initial_line (int): Starting source line number of the wrapped function.
         """
         if blacklist and whitelist:
             raise ValueError("Call blacklist and whitelist can not both be used at once")
@@ -162,10 +162,8 @@ class WrapCallsTransformer(RecompyleBaseTransformer):
         node.args.kwonlyargs.append(ast.arg(self._wrap_call_name))
         node.args.kw_defaults.append(ast.Name(id=self._wrap_call_name, ctx=ast.Load()))
 
-        # Temp remove decorators so they are not visited, then restore after visiting children
-        decorator_cache = node.decorator_list
+        # Remove decorators. The transformed version should have none, as it will be
+        # passed into the actual decorators after compiling.
         node.decorator_list = []
         self.generic_visit(node)
-        node.decorator_list = decorator_cache
-
         return node
