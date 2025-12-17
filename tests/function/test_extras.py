@@ -1,6 +1,6 @@
 import logging
 
-import pytest
+import pytest  # noqa: F401
 
 from recompyle import CallExtras, wrap_calls
 

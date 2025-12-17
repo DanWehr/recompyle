@@ -64,7 +64,7 @@ exclude_also = [
 
 [tool.ruff]
 line-length = 120
-select = ["E", "F", "B", "I"]
 
 [tool.ruff.lint]
 extend-select = ["I"]
+select = ["E", "F", "B", "I"]

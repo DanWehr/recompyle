@@ -1,6 +1,7 @@
 """
 Tests/examples for wrapping different kinds if functions and methods.
 """
+
 import logging
 
 import pytest

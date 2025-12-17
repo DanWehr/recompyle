@@ -1,6 +1,7 @@
 """
 Tests/examples for call wrapping while limiting which calls get wrapped.
 """
+
 import logging
 
 from recompyle import wrap_calls
