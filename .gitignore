@@ -3,8 +3,11 @@
 # Testing
 *.coverage
 
-# Ruff custom user configuration, should extend pyproject.toml if used.
+# Ignore Ruff custom user configuration, should extend pyproject.toml if used.
 ruff.toml
 
-# Hatch build files
+# Build files
 dist
+
+# Ignore UV lock. This is a pure Python project outside of dev testing dependencies, the lock has no use.
+uv.lock
